@@ -41,8 +41,8 @@ def setup_logger(
         datefmt='%Y-%m-%d %H:%M:%S'
     )
     
-    # 控制台处理器
-    console_handler = logging.StreamHandler(sys.stdout)
+    # 控制台处理器 - 使用 sys.stderr 而不是 sys.stdout，避免与 uvicorn 冲突
+    console_handler = logging.StreamHandler(sys.stderr)
     console_handler.setLevel(console_level)
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
