@@ -124,6 +124,16 @@ semantune/
 │       ├── logger.py         # 日志配置
 │       ├── analyze.py        # 数据分析工具
 │       └── export.py         # 数据导出工具
+├── frontend/                 # 前端界面（React + Vite + TypeScript + TailwindCSS）
+│   ├── src/
+│   │   ├── api/              # API 客户端
+│   │   ├── components/       # 通用组件
+│   │   ├── pages/            # 页面组件
+│   │   ├── types/            # TypeScript 类型定义
+│   │   ├── App.tsx           # 主应用组件
+│   │   └── main.tsx          # 入口文件
+│   ├── package.json          # 前端依赖配置
+│   └── vite.config.ts        # Vite 配置
 ├── data/                     # 数据目录
 │   ├── navidrome.db          # Navidrome 数据库（播放历史、歌单）
 │   └── semantic.db           # 语义标签数据库
@@ -147,33 +157,79 @@ semantune/
 ### 前置要求
 
 1. **Python 3.8+**
-2. **NVIDIA API Key** - 用于调用 LLM 服务
-3. **Navidrome** - 音乐服务器（已安装并有播放数据）
+2. **Node.js 16+** - 用于运行前端界面
+3. **NVIDIA API Key** - 用于调用 LLM 服务
+4. **Navidrome** - 音乐服务器（已安装并有播放数据）
 
 ### 安装步骤
 
 1. **克隆项目**
    ```bash
    git clone <your-repo-url>
-   cd chatgpt-rec
+   cd semantune
    ```
 
-2. **安装依赖**
+2. **安装后端依赖**
    ```bash
    pip install requests
    ```
 
-3. **配置 API Key**
-    
-    复制环境变量模板并配置：
-    ```bash
-    cp .env.example .env
-    ```
-    
-    编辑 `.env` 文件，设置你的 NVIDIA API Key：
-    ```bash
-    SEMANTUNE_API_KEY=your-api-key-here
-    ```
+3. **安装前端依赖**
+   ```bash
+   cd frontend
+   npm install
+   cd ..
+   ```
+
+4. **配置 API Key**
+   
+   复制环境变量模板并配置：
+   ```bash
+   cp .env.example .env
+   ```
+   
+   编辑 `.env` 文件，设置你的 NVIDIA API Key：
+   ```bash
+   SEMANTUNE_API_KEY=your-api-key-here
+   ```
+
+### 启动服务
+
+#### 方式一：使用 Web 界面（推荐）
+
+1. **启动后端 API 服务**
+   ```bash
+   python main.py api --host 0.0.0.0 --port 8000
+   ```
+
+2. **启动前端开发服务器**（新开一个终端）
+   ```bash
+   cd frontend
+   npm run dev
+   ```
+
+3. **访问 Web 界面**
+   
+   打开浏览器访问：`http://localhost:3000`
+
+#### 方式二：使用命令行
+
+```bash
+# 生成语义标签
+python main.py tag
+
+# 生成推荐
+python main.py recommend
+
+# 查询歌曲
+python main.py query
+
+# 分析数据
+python main.py analyze
+
+# 导出数据
+python main.py export
+```
 
 ---
 
@@ -482,6 +538,55 @@ API 服务需要安装以下依赖：
 ```bash
 pip install fastapi uvicorn python-dotenv
 ```
+
+---
+
+## 🎨 前端界面
+
+项目包含一个基于 React + Vite + TypeScript + TailwindCSS 的 Web 前端界面。
+
+### 前端技术栈
+
+- **React 18** - UI 框架
+- **Vite** - 构建工具
+- **TypeScript** - 类型安全
+- **TailwindCSS** - CSS 框架
+- **React Router** - 路由管理
+- **Axios** - HTTP 客户端
+- **Lucide React** - 图标库
+
+### 前端页面
+
+| 页面 | 路径 | 功能 |
+|------|------|------|
+| 首页 | `/` | 显示系统概览和统计数据 |
+| 推荐 | `/recommend` | 获取个性化音乐推荐 |
+| 查询 | `/query` | 根据语义标签搜索歌曲 |
+| 标签生成 | `/tagging` | 管理语义标签生成任务 |
+| 分析 | `/analyze` | 查看详细的数据分析 |
+
+### 前端开发
+
+```bash
+# 进入前端目录
+cd frontend
+
+# 安装依赖
+npm install
+
+# 启动开发服务器
+npm run dev
+
+# 构建生产版本
+npm run build
+
+# 预览生产构建
+npm run preview
+```
+
+前端开发服务器将在 `http://localhost:3000` 启动，并自动代理 API 请求到后端服务。
+
+详细的前端文档请参考 [`frontend/README.md`](frontend/README.md:1)。
 
 ---
 

@@ -103,7 +103,7 @@ python main.py tag-preview
         import uvicorn
         logger.info(f"API 服务地址: http://{args.host}:{args.port}")
         logger.info(f"API 文档: http://{args.host}:{args.port}/docs")
-        uvicorn.run("src.api.app:app", host=args.host, port=args.port, reload=False)
+        uvicorn.run("src.api.app:app", host=args.host, port=args.port, reload=True)
 
 
 if __name__ == "__main__":

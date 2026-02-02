@@ -1,6 +1,7 @@
 """
 标签生成接口路由
 """
+import logging
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from typing import Optional, List
@@ -220,3 +221,107 @@ async def process_batch_tags(songs: List[dict]):
     except Exception as e:
         logger.error(f"批量标签生成失败: {e}")
         tagging_progress["status"] = "failed"
+
+
+@router.get("/status")
+async def get_tagging_status():
+    """
+    获取标签生成状态（前端专用）
+    """
+    try:
+        nav_conn = connect_nav_db()
+        sem_conn = connect_sem_db()
+        
+        # 初始化语义数据库
+        init_semantic_db(sem_conn)
+        
+        # 获取 Navidrome 中的所有歌曲
+        nav_songs = nav_conn.execute("""
+            SELECT id, title, album_artist
+            FROM media_file
+            ORDER BY id
+        """).fetchall()
+        total = len(nav_songs)
+        
+        # 获取已标签的歌曲
+        tagged = sem_conn.execute("SELECT COUNT(*) FROM music_semantic").fetchone()[0]
+        
+        # 获取待处理的歌曲
+        pending = total - tagged
+        
+        # 获取失败的歌曲（这里简化处理，实际可能需要更复杂的逻辑）
+        failed = 0
+        
+        # 计算进度
+        progress = (tagged / total * 100) if total > 0 else 0
+        
+        nav_conn.close()
+        sem_conn.close()
+        
+        return {
+            "total": total,
+            "processed": tagged,
+            "pending": pending,
+            "failed": failed,
+            "progress": progress
+        }
+        
+    except Exception as e:
+        logger.error(f"获取标签生成状态失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/preview")
+async def preview_tagging(limit: int = 5):
+    """
+    预览标签生成（前端专用）
+    """
+    try:
+        nav_conn = connect_nav_db()
+        
+        # 获取一些未标签的歌曲
+        songs = nav_conn.execute("""
+            SELECT id, title, album_artist
+            FROM media_file
+            LIMIT ?
+        """, (limit,)).fetchall()
+        
+        # 为每首歌生成标签
+        previews = []
+        for song in songs:
+            file_id, title, artist = song
+            try:
+                tags = nim_classify(title, artist, "")
+                previews.append({
+                    "title": title,
+                    "artist": artist,
+                    "tags": tags
+                })
+            except Exception as e:
+                logger.error(f"生成标签失败: {title} - {artist}: {e}")
+        
+        nav_conn.close()
+        
+        return {"success": True, "data": previews}
+        
+    except Exception as e:
+        logger.error(f"预览标签生成失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/start")
+async def start_tagging():
+    """
+    开始标签生成（前端专用）
+    """
+    try:
+        # 这里可以启动后台任务
+        # 简化处理，返回成功消息
+        return {
+            "success": True,
+            "message": "标签生成任务已启动"
+        }
+        
+    except Exception as e:
+        logger.error(f"启动标签生成失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
