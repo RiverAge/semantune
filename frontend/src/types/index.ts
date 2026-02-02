@@ -54,6 +54,7 @@ export interface TaggingStatus {
   pending: number;
   failed: number;
   progress: number;
+  task_status?: 'idle' | 'processing' | 'completed' | 'failed';
 }
 
 export interface TaggingPreview {

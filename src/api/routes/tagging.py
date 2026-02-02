@@ -2,11 +2,13 @@
 标签生成接口路由
 """
 import logging
+import asyncio
 from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional, List
 
-from src.tagging.worker import nim_classify
+from src.tagging.worker import nim_classify, process_all_songs
 from src.core.database import connect_nav_db, connect_sem_db
 from src.core.schema import init_semantic_db
 from src.utils.logger import setup_logger
@@ -52,8 +54,22 @@ tagging_progress = {
     "status": "idle"
 }
 
+# SSE 客户端队列
+sse_clients = []
 
-@router.post("/generate", response_model=TagResponse)
+
+async def broadcast_progress():
+    """向所有 SSE 客户端广播进度"""
+    if sse_clients:
+        message = f"data: {tagging_progress}\n\n"
+        for queue in sse_clients:
+            try:
+                await queue.put(message)
+            except Exception as e:
+                logger.error(f"发送进度失败: {e}")
+
+
+@router.post("/generate")
 async def generate_tag(request: TagRequest):
     """
     为单首歌曲生成语义标签
@@ -70,13 +86,16 @@ async def generate_tag(request: TagRequest):
         
         logger.info(f"为 {request.artist} - {request.title} 生成标签成功")
         
-        return TagResponse(
-            title=request.title,
-            artist=request.artist,
-            album=request.album,
-            tags=tags,
-            raw_response=raw_response
-        )
+        return {
+            "success": True,
+            "data": {
+                "title": request.title,
+                "artist": request.artist,
+                "album": request.album,
+                "tags": tags,
+                "raw_response": raw_response
+            }
+        }
         
     except Exception as e:
         logger.error(f"标签生成失败: {e}")
@@ -259,11 +278,15 @@ async def get_tagging_status():
         sem_conn.close()
         
         return {
-            "total": total,
-            "processed": tagged,
-            "pending": pending,
-            "failed": failed,
-            "progress": progress
+            "success": True,
+            "data": {
+                "total": total,
+                "processed": tagged,
+                "pending": pending,
+                "failed": failed,
+                "progress": progress,
+                "task_status": tagging_progress["status"]  # 返回任务状态
+            }
         }
         
     except Exception as e:
@@ -309,14 +332,77 @@ async def preview_tagging(limit: int = 5):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/stream")
+async def stream_progress():
+    """
+    SSE 端点：实时推送标签生成进度
+    """
+    async def event_generator():
+        queue = asyncio.Queue()
+        sse_clients.append(queue)
+        
+        try:
+            # 发送初始状态
+            yield f"data: {tagging_progress}\n\n"
+            
+            # 如果任务已经完成，立即发送 DONE
+            if tagging_progress["status"] in ["completed", "failed"]:
+                yield "data: [DONE]\n\n"
+                return
+            
+            while True:
+                # 等待进度更新
+                message = await queue.get()
+                yield message
+                
+                # 如果任务完成，关闭连接
+                if tagging_progress["status"] in ["completed", "failed"]:
+                    yield "data: [DONE]\n\n"
+                    break
+                    
+        except asyncio.CancelledError:
+            pass
+        finally:
+            if queue in sse_clients:
+                sse_clients.remove(queue)
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
 @router.post("/start")
-async def start_tagging():
+async def start_tagging(background_tasks: BackgroundTasks):
     """
     开始标签生成（前端专用）
     """
     try:
-        # 这里可以启动后台任务
-        # 简化处理，返回成功消息
+        # 检查是否已经在运行
+        if tagging_progress["status"] == "processing":
+            return {
+                "success": False,
+                "message": "标签生成任务正在运行中"
+            }
+        
+        # 初始化进度
+        tagging_progress["total"] = 0
+        tagging_progress["processed"] = 0
+        tagging_progress["status"] = "processing"
+        
+        # 广播初始状态
+        await broadcast_progress()
+        
+        # 添加后台任务
+        background_tasks.add_task(run_tagging_task)
+        
+        logger.info("标签生成任务已启动")
+        
         return {
             "success": True,
             "message": "标签生成任务已启动"
@@ -324,4 +410,145 @@ async def start_tagging():
         
     except Exception as e:
         logger.error(f"启动标签生成失败: {e}")
+        tagging_progress["status"] = "failed"
+        await broadcast_progress()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/stop")
+async def stop_tagging():
+    """
+    中止标签生成任务
+    """
+    try:
+        if tagging_progress["status"] != "processing":
+            return {
+                "success": False,
+                "message": "没有正在运行的任务"
+            }
+        
+        # 设置状态为已中止
+        tagging_progress["status"] = "stopped"
+        await broadcast_progress()
+        
+        logger.info("标签生成任务已中止")
+        
+        return {
+            "success": True,
+            "message": "标签生成任务已中止"
+        }
+        
+    except Exception as e:
+        logger.error(f"中止标签生成失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/history")
+async def get_tagging_history(limit: int = 20, offset: int = 0):
+    """
+    获取标签生成历史记录
+    
+    - **limit**: 每页数量，默认 20
+    - **offset**: 偏移量，默认 0
+    """
+    try:
+        sem_conn = connect_sem_db()
+        
+        # 获取历史记录
+        cursor = sem_conn.execute("""
+            SELECT file_id, title, artist, album, mood, energy, scene,
+                   region, subculture, genre, confidence, updated_at
+            FROM music_semantic
+            ORDER BY updated_at DESC
+            LIMIT ? OFFSET ?
+        """, (limit, offset))
+        
+        rows = cursor.fetchall()
+        
+        # 获取总数
+        total = sem_conn.execute("SELECT COUNT(*) FROM music_semantic").fetchone()[0]
+        
+        sem_conn.close()
+        
+        history = []
+        for row in rows:
+            history.append({
+                "file_id": row[0],
+                "title": row[1],
+                "artist": row[2],
+                "album": row[3],
+                "tags": {
+                    "mood": row[4],
+                    "energy": row[5],
+                    "scene": row[6],
+                    "region": row[7],
+                    "subculture": row[8],
+                    "genre": row[9],
+                    "confidence": row[10]
+                },
+                "updated_at": row[11]
+            })
+        
+        return {
+            "success": True,
+            "data": {
+                "items": history,
+                "total": total,
+                "limit": limit,
+                "offset": offset
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"获取历史记录失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def run_tagging_task():
+    """
+    后台任务：处理所有未标签的歌曲
+    """
+    try:
+        # 获取待处理歌曲数量
+        nav_conn = connect_nav_db()
+        sem_conn = connect_sem_db()
+        
+        init_semantic_db(sem_conn)
+        
+        # 获取所有歌曲
+        nav_songs = nav_conn.execute("""
+            SELECT id, title, artist, album
+            FROM media_file
+        """).fetchall()
+        
+        # 获取已处理的歌曲ID
+        processed_ids = {row['file_id'] for row in sem_conn.execute("SELECT file_id FROM music_semantic").fetchall()}
+        
+        # 筛选未处理的歌曲
+        todo_songs = [s for s in nav_songs if str(s['id']) not in processed_ids]
+        
+        nav_conn.close()
+        sem_conn.close()
+        
+        # 更新总数
+        tagging_progress["total"] = len(todo_songs)
+        await broadcast_progress()
+        
+        if len(todo_songs) == 0:
+            tagging_progress["status"] = "completed"
+            await broadcast_progress()
+            logger.info("没有需要处理的歌曲")
+            return
+        
+        # 调用处理函数
+        result = process_all_songs()
+        
+        # 更新最终状态
+        tagging_progress["status"] = "completed"
+        await broadcast_progress()
+        logger.info(f"标签生成任务完成: {result}")
+        
+    except Exception as e:
+        logger.error(f"标签生成任务失败: {e}")
+        tagging_progress["status"] = "failed"
+        await broadcast_progress()

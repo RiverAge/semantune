@@ -84,10 +84,60 @@ export const taggingApi = {
     return response.data;
   },
 
-  // 预览标签生成
-  previewTagging: async (limit: number = 5) => {
-    const response = await api.get<ApiResponse<TaggingPreview[]>>('/tagging/preview', { params: { limit } });
+  // 中止标签生成
+  stopTagging: async () => {
+    const response = await api.post<ApiResponse<{ message: string }>>('/tagging/stop');
     return response.data;
+  },
+
+  // 测试单首歌曲标签生成
+  testTag: async (title: string, artist: string, album: string) => {
+    const response = await api.post<ApiResponse<{
+      title: string;
+      artist: string;
+      album: string;
+      tags: any;
+      raw_response: string;
+    }>>('/tagging/generate', { title, artist, album });
+    return response.data;
+  },
+
+  // 获取标签生成历史记录
+  getHistory: async (limit: number = 20, offset: number = 0) => {
+    const response = await api.get<ApiResponse<{
+      items: any[];
+      total: number;
+      limit: number;
+      offset: number;
+    }>>('/tagging/history', { params: { limit, offset } });
+    return response.data;
+  },
+
+  // SSE 流式获取进度
+  streamProgress: (onProgress: (data: any) => void, onComplete: () => void, onError: (error: Error) => void) => {
+    const eventSource = new EventSource('/api/v1/tagging/stream');
+    
+    eventSource.onmessage = (event) => {
+      if (event.data === '[DONE]') {
+        eventSource.close();
+        onComplete();
+        return;
+      }
+      
+      try {
+        const data = JSON.parse(event.data);
+        onProgress(data);
+      } catch (e) {
+        console.error('解析 SSE 数据失败:', e);
+      }
+    };
+    
+    eventSource.onerror = (error) => {
+      eventSource.close();
+      onError(new Error('SSE 连接失败'));
+    };
+    
+    return eventSource;
   },
 };
 
