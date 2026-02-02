@@ -112,6 +112,13 @@ semantune/
 │   │   └── engine.py         # 推荐算法实现（含即时画像构建）
 │   ├── query/                # 查询工具
 │   │   └── search.py         # 标签查询工具
+│   ├── api/                  # FastAPI 接口
+│   │   ├── app.py            # FastAPI 主应用
+│   │   └── routes/           # API 路由
+│   │       ├── recommend.py  # 推荐接口
+│   │       ├── query.py      # 查询接口
+│   │       ├── tagging.py    # 标签生成接口
+│   │       └── analyze.py    # 分析接口
 │   └── utils/                # 工具函数
 │       ├── common.py         # 通用工具函数
 │       ├── logger.py         # 日志配置
@@ -375,9 +382,106 @@ python main.py <command>
   query        查询歌曲
   analyze      分析数据
   export       导出数据
+  api          启动 API 服务
 ```
 
 **注意**：用户画像现在在推荐时即时构建，无需单独运行 `profile` 命令。
+
+---
+
+## 🌐 API 服务
+
+### 启动 API 服务
+
+```bash
+# 启动 API 服务（默认端口 8000）
+python main.py api
+
+# 指定端口
+python main.py api --port 8080
+
+# 指定监听地址
+python main.py api --host 127.0.0.1 --port 8080
+```
+
+启动后访问：
+- API 文档: http://localhost:8000/docs
+- ReDoc 文档: http://localhost:8000/redoc
+- 健康检查: http://localhost:8000/health
+
+### API 端点
+
+#### 推荐接口 (`/api/v1/recommend`)
+
+| 方法 | 端点 | 描述 |
+|------|------|------|
+| POST | `/` | 获取个性化推荐 |
+| GET | `/users` | 获取所有用户列表 |
+
+**推荐请求示例**：
+```json
+{
+  "user_id": "user_123",
+  "limit": 30,
+  "filter_recent": true,
+  "diversity": true
+}
+```
+
+#### 查询接口 (`/api/v1/query`)
+
+| 方法 | 端点 | 描述 |
+|------|------|------|
+| POST | `/mood` | 按情绪查询歌曲 |
+| POST | `/tags` | 按标签组合查询歌曲 |
+| POST | `/scene` | 按预设场景查询歌曲 |
+| POST | `/similar` | 找相似歌曲 |
+| POST | `/random` | 随机推荐歌曲 |
+| GET | `/labels` | 获取所有可用标签列表 |
+
+**按情绪查询示例**：
+```json
+{
+  "mood": "Energetic",
+  "limit": 20
+}
+```
+
+#### 标签生成接口 (`/api/v1/tagging`)
+
+| 方法 | 端点 | 描述 |
+|------|------|------|
+| POST | `/generate` | 为单首歌曲生成语义标签 |
+| POST | `/batch` | 批量生成语义标签（后台任务） |
+| GET | `/progress` | 获取批量标签生成进度 |
+| POST | `/sync` | 同步标签到数据库 |
+
+**生成标签示例**：
+```json
+{
+  "title": "夜曲",
+  "artist": "周杰伦",
+  "album": "十一月的萧邦"
+}
+```
+
+#### 分析接口 (`/api/v1/analyze`)
+
+| 方法 | 端点 | 描述 |
+|------|------|------|
+| GET | `/distribution/{field}` | 获取指定字段的分布分析 |
+| GET | `/combinations` | 获取最常见的 Mood + Energy 组合 |
+| GET | `/region-genre` | 获取各地区的流派分布 |
+| GET | `/quality` | 获取数据质量分析 |
+| GET | `/summary` | 获取数据概览 |
+
+### 依赖安装
+
+API 服务需要安装以下依赖：
+
+```bash
+pip install fastapi uvicorn python-dotenv
+```
 
 ---
 
@@ -393,6 +497,11 @@ python main.py <command>
 | | [`src/tagging/preview.py`](src/tagging/preview.py:1) | 标签生成预览工具 |
 | **推荐引擎** | [`src/recommend/engine.py`](src/recommend/engine.py:1) | 推荐算法实现（含即时画像构建） |
 | **查询工具** | [`src/query/search.py`](src/query/search.py:1) | 标签查询工具 |
+| **API 服务** | [`src/api/app.py`](src/api/app.py:1) | FastAPI 主应用 |
+| | [`src/api/routes/recommend.py`](src/api/routes/recommend.py:1) | 推荐接口 |
+| | [`src/api/routes/query.py`](src/api/routes/query.py:1) | 查询接口 |
+| | [`src/api/routes/tagging.py`](src/api/routes/tagging.py:1) | 标签生成接口 |
+| | [`src/api/routes/analyze.py`](src/api/routes/analyze.py:1) | 分析接口 |
 | **工具函数** | [`src/utils/common.py`](src/utils/common.py:1) | 通用工具函数 |
 | | [`src/utils/logger.py`](src/utils/logger.py:1) | 日志配置 |
 | | [`src/utils/analyze.py`](src/utils/analyze.py:1) | 数据分析工具 |

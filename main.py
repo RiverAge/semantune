@@ -47,8 +47,21 @@ python main.py tag-preview
 
     parser.add_argument(
         'command',
-        choices=['tag', 'recommend', 'query', 'analyze', 'export', 'tag-preview'],
+        choices=['tag', 'recommend', 'query', 'analyze', 'export', 'tag-preview', 'api'],
         help='要执行的命令'
+    )
+    
+    parser.add_argument(
+        '--host',
+        default='0.0.0.0',
+        help='API 服务监听地址（仅用于 api 命令）'
+    )
+    
+    parser.add_argument(
+        '--port',
+        type=int,
+        default=8000,
+        help='API 服务监听端口（仅用于 api 命令）'
     )
 
     args = parser.parse_args()
@@ -84,6 +97,13 @@ python main.py tag-preview
         logger.info("👁️  预览标签生成...")
         from src.tagging.preview import main as preview_main
         preview_main()
+    
+    elif args.command == 'api':
+        logger.info("🚀 启动 API 服务...")
+        import uvicorn
+        logger.info(f"API 服务地址: http://{args.host}:{args.port}")
+        logger.info(f"API 文档: http://{args.host}:{args.port}/docs")
+        uvicorn.run("src.api.app:app", host=args.host, port=args.port, reload=False)
 
 
 if __name__ == "__main__":

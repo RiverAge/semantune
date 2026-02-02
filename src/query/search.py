@@ -158,6 +158,47 @@ def query_similar_to_song(sem, song_title: str, limit: int = 20) -> List[Dict[st
     return cursor.fetchall()
 
 
+def find_similar_songs(sem, title: str, artist: str, limit: int = 20) -> List[Dict[str, Any]]:
+    """找相似歌曲（基于标题和歌手）"""
+    # 先找到目标歌曲
+    target = sem.execute("""
+        SELECT mood, energy, genre, region
+        FROM music_semantic
+        WHERE title LIKE ? AND artist LIKE ?
+        LIMIT 1
+    """, (f"%{title}%", f"%{artist}%")).fetchone()
+
+    if not target:
+        logger.warning(f"找不到歌曲: {artist} - {title}")
+        return []
+
+    # 找相似的歌曲（相同 mood + energy + genre）
+    cursor = sem.execute("""
+        SELECT title, artist, album, mood, energy, genre, region, confidence
+        FROM music_semantic
+        WHERE mood = ? AND energy = ? AND genre = ?
+        AND NOT (title LIKE ? AND artist LIKE ?)
+        ORDER BY RANDOM()
+        LIMIT ?
+    """, (target['mood'], target['energy'], target['genre'], f"%{title}%", f"%{artist}%", limit))
+
+    logger.info(f"[目标] 歌曲标签: {target['mood']} / {target['energy']} / {target['genre']} / {target['region']}")
+
+    return cursor.fetchall()
+
+
+def random_songs(sem, limit: int = 20) -> List[Dict[str, Any]]:
+    """随机推荐歌曲"""
+    cursor = sem.execute("""
+        SELECT title, artist, album, mood, energy, genre, region, confidence
+        FROM music_semantic
+        ORDER BY RANDOM()
+        LIMIT ?
+    """, (limit,))
+
+    return cursor.fetchall()
+
+
 def export_playlist(songs, filename):
     """导出歌单到文件"""
     with open(filename, "w", encoding="utf-8") as f:
