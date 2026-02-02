@@ -310,14 +310,17 @@ async def get_stats():
         logger.info("获取整体统计数据")
         
         return {
-            "total_songs": total_songs,
-            "tagged_songs": tagged_songs,
-            "untagged_songs": untagged_songs,
-            "tag_coverage": tag_coverage,
-            "mood_distribution": mood_distribution,
-            "energy_distribution": energy_distribution,
-            "genre_distribution": genre_distribution,
-            "region_distribution": region_distribution
+            "success": True,
+            "data": {
+                "total_songs": total_songs,
+                "tagged_songs": tagged_songs,
+                "untagged_songs": untagged_songs,
+                "tag_coverage": tag_coverage,
+                "mood_distribution": mood_distribution,
+                "energy_distribution": energy_distribution,
+                "genre_distribution": genre_distribution,
+                "region_distribution": region_distribution
+            }
         }
         
     except Exception as e:
@@ -343,7 +346,10 @@ async def get_users():
         
         logger.info(f"获取用户列表: {len(user_list)} 个用户")
         
-        return user_list
+        return {
+            "success": True,
+            "data": user_list
+        }
         
     except Exception as e:
         logger.error(f"获取用户列表失败: {e}")
@@ -445,15 +451,18 @@ async def get_user_stats(username: str):
         logger.info(f"获取用户统计数据: {username}")
         
         return {
-            "username": username,
-            "total_plays": total_plays,
-            "unique_songs": unique_songs,
-            "starred_count": starred_count,
-            "playlist_count": playlist_count,
-            "top_artists": [{"artist": a, "count": c} for a, c in top_artists],
-            "top_moods": [{"mood": m, "count": c} for m, c in top_moods],
-            "top_energies": [{"energy": e, "count": c} for e, c in top_energies],
-            "top_genres": [{"genre": g, "count": c} for g, c in top_genres]
+            "success": True,
+            "data": {
+                "username": username,
+                "total_plays": total_plays,
+                "unique_songs": unique_songs,
+                "starred_count": starred_count,
+                "playlist_count": playlist_count,
+                "top_artists": [{"artist": a, "count": c} for a, c in top_artists],
+                "top_moods": [{"mood": m, "count": c} for m, c in top_moods],
+                "top_energies": [{"energy": e, "count": c} for e, c in top_energies],
+                "top_genres": [{"genre": g, "count": c} for g, c in top_genres]
+            }
         }
         
     except Exception as e:

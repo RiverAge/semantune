@@ -1,12 +1,11 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Music, Search, Tag, BarChart3, Home, TestTube } from 'lucide-react';
+import { Music, Search, Tag, BarChart3, Home } from 'lucide-react';
 
 const navItems = [
   { path: '/', label: '首页', icon: Home },
   { path: '/recommend', label: '推荐', icon: Music },
   { path: '/query', label: '查询', icon: Search },
   { path: '/tagging', label: '标签生成', icon: Tag },
-  { path: '/test', label: '标签测试', icon: TestTube },
   { path: '/analyze', label: '分析', icon: BarChart3 },
 ];
 

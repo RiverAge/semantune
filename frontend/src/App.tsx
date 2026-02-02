@@ -4,7 +4,6 @@ import Home from './pages/Home';
 import Recommend from './pages/Recommend';
 import Query from './pages/Query';
 import Tagging from './pages/Tagging';
-import Test from './pages/Test';
 import Analyze from './pages/Analyze';
 
 function App() {
@@ -16,7 +15,6 @@ function App() {
           <Route path="/recommend" element={<Recommend />} />
           <Route path="/query" element={<Query />} />
           <Route path="/tagging" element={<Tagging />} />
-          <Route path="/test" element={<Test />} />
           <Route path="/analyze" element={<Analyze />} />
         </Routes>
       </Layout>
