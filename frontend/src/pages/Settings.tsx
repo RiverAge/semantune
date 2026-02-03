@@ -8,8 +8,8 @@ import type {
   AllowedLabels,
   TaggingApiConfig,
 } from '../types';
-import RecommendConfigPanel from './settings/RecommendConfig';
-import TaggingConfigPanel from './settings/TaggingConfig';
+import RecommendConfigPanel from './settings/RecommendConfigPanel';
+import TaggingConfigPanel from './settings/TaggingConfigPanel';
 
 export default function Settings() {
   const [loading, setLoading] = useState(true);
@@ -69,15 +69,15 @@ export default function Settings() {
     setLoading(true);
     try {
       if (activeTab === 'recommend') {
-        const response = await configApi.getRecommendConfig();
-        if (response.data) {
+        const response = await configApi.getRecommendConfig() as any;
+        if (response.success && response.data) {
           setRecommendConfig(response.data.recommend);
           setUserProfileConfig(response.data.user_profile);
           setAlgorithmConfig(response.data.algorithm);
         }
       } else {
-        const response = await configApi.getTaggingConfig();
-        if (response.data) {
+        const response = await configApi.getTaggingConfig() as any;
+        if (response.success && response.data) {
           setAllowedLabels(response.data.allowed_labels);
           setTaggingApiConfig(response.data.api_config);
         }
