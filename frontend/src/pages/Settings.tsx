@@ -5,7 +5,6 @@ import type {
   RecommendConfig,
   UserProfileConfig,
   AlgorithmConfig,
-  AllowedLabels,
   TaggingApiConfig,
 } from '../types';
 import RecommendConfigPanel from './settings/RecommendConfigPanel';
@@ -43,15 +42,6 @@ export default function Settings() {
   });
 
   // 标签配置
-  const [allowedLabels, setAllowedLabels] = useState<AllowedLabels>({
-    mood: [],
-    energy: [],
-    scene: [],
-    region: [],
-    subculture: [],
-    genre: [],
-  });
-
   const [taggingApiConfig, setTaggingApiConfig] = useState<TaggingApiConfig>({
     timeout: 60,
     max_tokens: 1024,
@@ -78,7 +68,6 @@ export default function Settings() {
       } else {
         const response = await configApi.getTaggingConfig() as any;
         if (response.success && response.data) {
-          setAllowedLabels(response.data.allowed_labels);
           setTaggingApiConfig(response.data.api_config);
         }
       }
@@ -109,7 +98,6 @@ export default function Settings() {
     setSaving(true);
     try {
       await configApi.updateTaggingConfig({
-        allowed_labels: allowedLabels,
         api_config: taggingApiConfig,
       });
       showMessage('success', '标签配置已保存');
@@ -200,8 +188,6 @@ export default function Settings() {
             />
           ) : (
             <TaggingConfigPanel
-              allowedLabels={allowedLabels}
-              setAllowedLabels={setAllowedLabels}
               taggingApiConfig={taggingApiConfig}
               setTaggingApiConfig={setTaggingApiConfig}
             />

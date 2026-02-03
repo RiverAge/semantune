@@ -2,6 +2,7 @@
 API配置管理 - .env文件相关配置
 """
 import logging
+import os
 from pathlib import Path
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
@@ -10,7 +11,11 @@ from typing import Optional
 from src.core.response import ApiResponse
 from src.utils.logger import setup_logger
 
-logger = setup_logger("api", level=logging.INFO)
+# 从环境变量读取日志级别，默认为 INFO
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+log_level = getattr(logging, LOG_LEVEL, logging.INFO)
+
+logger = setup_logger("api", level=log_level, console_level=log_level)
 
 
 class ApiConfig(BaseModel):

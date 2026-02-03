@@ -20,8 +20,6 @@ from src.api.routes.config_yaml import (
     RecommendConfigRequest,
     UserProfileConfigRequest,
     AlgorithmConfigRequest,
-    AllowedLabelsRequest,
-    ScenePresetsRequest,
     TaggingApiConfigRequest
 )
 
@@ -76,12 +74,10 @@ async def get_tagging_config_route():
 
 @router.put("/tagging")
 async def update_tagging_config_route(
-    allowed_labels: AllowedLabelsRequest = None,
-    scene_presets: ScenePresetsRequest = None,
     api_config: TaggingApiConfigRequest = None
 ):
     """更新标签配置"""
-    return await update_tagging_config_api(allowed_labels, scene_presets, api_config)
+    return await update_tagging_config_api(api_config)
 
 
 # ==================== 全部配置接口 ====================

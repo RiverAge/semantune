@@ -130,22 +130,6 @@ export interface AlgorithmConfig {
   randomness: number;
 }
 
-export interface AllowedLabels {
-  mood: string[];
-  energy: string[];
-  scene: string[];
-  region: string[];
-  subculture: string[];
-  genre: string[];
-}
-
-export interface ScenePresets {
-  [key: string]: {
-    mood: string[];
-    energy: string[];
-  };
-}
-
 export interface TaggingApiConfig {
   timeout: number;
   max_tokens: number;
@@ -159,7 +143,5 @@ export interface AllConfig {
   recommend: RecommendConfig;
   user_profile: UserProfileConfig;
   algorithm: AlgorithmConfig;
-  allowed_labels: AllowedLabels;
-  scene_presets: ScenePresets;
   api_config: TaggingApiConfig;
 }

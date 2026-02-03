@@ -2,6 +2,7 @@
 分析接口路由
 """
 import logging
+import os
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
@@ -13,7 +14,11 @@ from src.core.exceptions import SemantuneException
 from src.services.service_factory import ServiceFactory
 from src.utils.logger import setup_logger
 
-logger = setup_logger("api", level=logging.INFO)
+# 从环境变量读取日志级别，默认为 INFO
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+log_level = getattr(logging, LOG_LEVEL, logging.INFO)
+
+logger = setup_logger("api", level=log_level, console_level=log_level)
 
 router = APIRouter()
 

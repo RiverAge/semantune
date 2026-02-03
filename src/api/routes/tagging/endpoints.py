@@ -2,6 +2,7 @@
 标签生成接口路由端点
 """
 import logging
+import os
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
 from fastapi.responses import StreamingResponse
 
@@ -22,7 +23,11 @@ from ..tagging_sse import (
 from ..tagging_tasks import run_tagging_task, process_batch_tags
 from .models import TagRequest, TagProgressResponse, BatchTagRequest
 
-logger = setup_logger("api", level=logging.INFO)
+# 从环境变量读取日志级别，默认为 INFO
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+log_level = getattr(logging, LOG_LEVEL, logging.INFO)
+
+logger = setup_logger("api", level=log_level, console_level=log_level)
 
 router = APIRouter()
 

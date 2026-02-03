@@ -12,8 +12,6 @@ import type {
   RecommendConfig,
   UserProfileConfig,
   AlgorithmConfig,
-  AllowedLabels,
-  ScenePresets,
   TaggingApiConfig,
   AllConfig,
 } from '../types';
@@ -255,16 +253,12 @@ export const configApi = {
   // 获取标签配置
   getTaggingConfig: async () => {
     return await api.get<ApiResponse<{
-      allowed_labels: AllowedLabels;
-      scene_presets: ScenePresets;
       api_config: TaggingApiConfig;
     }>>('/config/tagging');
   },
 
   // 更新标签配置
   updateTaggingConfig: async (params: {
-    allowed_labels?: AllowedLabels;
-    scene_presets?: ScenePresets;
     api_config?: TaggingApiConfig;
   }) => {
     return await api.put<ApiResponse<{ message: string }>>('/config/tagging', params);

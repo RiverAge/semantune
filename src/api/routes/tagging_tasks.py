@@ -3,6 +3,7 @@
 """
 
 import logging
+import os
 from typing import List
 
 from src.core.database import dbs_context
@@ -13,7 +14,11 @@ from src.services.service_factory import ServiceFactory
 from src.utils.logger import setup_logger
 from .tagging_sse import update_tagging_progress, broadcast_progress
 
-logger = setup_logger("api", level=logging.INFO)
+# 从环境变量读取日志级别，默认为 INFO
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+log_level = getattr(logging, LOG_LEVEL, logging.INFO)
+
+logger = setup_logger("api", level=log_level, console_level=log_level)
 
 
 async def run_tagging_task():

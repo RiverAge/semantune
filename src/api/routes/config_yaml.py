@@ -2,6 +2,7 @@
 YAML配置管理 - 推荐配置和标签配置
 """
 import logging
+import os
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
@@ -9,7 +10,11 @@ from typing import Optional, Dict, Any, List
 from src.core.response import ApiResponse
 from src.utils.logger import setup_logger
 
-logger = setup_logger("api", level=logging.INFO)
+# 从环境变量读取日志级别，默认为 INFO
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+log_level = getattr(logging, LOG_LEVEL, logging.INFO)
+
+logger = setup_logger("api", level=log_level, console_level=log_level)
 
 
 # ==================== 推荐配置请求模型 ====================
@@ -46,21 +51,6 @@ class AlgorithmConfigRequest(BaseModel):
 
 # ==================== 标签配置请求模型 ====================
 
-class AllowedLabelsRequest(BaseModel):
-    """标签白名单请求模型"""
-    mood: List[str] = Field(default=[], description="情绪标签列表")
-    energy: List[str] = Field(default=[], description="能量标签列表")
-    scene: List[str] = Field(default=[], description="场景标签列表")
-    region: List[str] = Field(default=[], description="地区标签列表")
-    subculture: List[str] = Field(default=[], description="亚文化标签列表")
-    genre: List[str] = Field(default=[], description="流派标签列表")
-
-
-class ScenePresetsRequest(BaseModel):
-    """场景预设请求模型"""
-    presets: Dict[str, Dict[str, List[str]]] = Field(default={}, description="场景预设字典")
-
-
 class TaggingApiConfigRequest(BaseModel):
     """标签生成 API 配置请求模型"""
     timeout: int = Field(default=60, ge=1, description="API 请求超时时间（秒）")
@@ -76,12 +66,12 @@ class TaggingApiConfigRequest(BaseModel):
 async def get_recommend_config_api():
     """
     获取推荐配置
-    
+
     返回推荐系统的配置信息
     """
     try:
         from config.settings import get_recommend_config, get_user_profile_config, get_algorithm_config
-        
+
         return ApiResponse.success_response(data={
             "recommend": get_recommend_config(),
             "user_profile": get_user_profile_config(),
@@ -99,24 +89,24 @@ async def update_recommend_config_api(
 ):
     """
     更新推荐配置
-    
+
     可以单独更新推荐配置、用户画像配置或算法配置
     """
     try:
         from config.settings import update_recommend_config, update_user_profile_config, update_algorithm_config
-        
+
         if recommend:
             update_recommend_config(recommend.model_dump())
             logger.info("推荐配置已更新")
-        
+
         if user_profile:
             update_user_profile_config(user_profile.model_dump())
             logger.info("用户画像配置已更新")
-        
+
         if algorithm:
             update_algorithm_config(algorithm.model_dump())
             logger.info("算法配置已更新")
-        
+
         return ApiResponse.success_response(data={
             "message": "配置已更新"
         })
@@ -130,16 +120,14 @@ async def update_recommend_config_api(
 async def get_tagging_config_api():
     """
     获取标签配置
-    
-    返回标签生成系统的配置信息
-    注意：提示词模板会根据标签白名单自动生成
+
+    返回标签生成系统的 API 配置信息
+    注意：标签白名单（mood、energy、scene、region、subculture、genre）现在通过后台配置文件 config/tagging_config.yaml 管理
     """
     try:
-        from config.constants import get_allowed_labels, get_scene_presets, get_tagging_api_config
-        
+        from config.constants import get_tagging_api_config
+
         return ApiResponse.success_response(data={
-            "allowed_labels": get_allowed_labels(),
-            "scene_presets": get_scene_presets(),
             "api_config": get_tagging_api_config()
         })
     except Exception as e:
@@ -148,34 +136,21 @@ async def get_tagging_config_api():
 
 
 async def update_tagging_config_api(
-    allowed_labels: Optional[AllowedLabelsRequest] = None,
-    scene_presets: Optional[ScenePresetsRequest] = None,
     api_config: Optional[TaggingApiConfigRequest] = None
 ):
     """
     更新标签配置
-    
-    可以单独更新标签白名单、场景预设或 API 配置
-    注意：提示词模板会根据标签白名单自动生成，无需手动配置
+
+    只更新 API 配置
+    注意：标签白名单（mood、energy、scene、region、subculture、genre）现在通过后台配置文件 config/tagging_config.yaml 管理
     """
     try:
-        from config.constants import (
-            update_allowed_labels, update_scene_presets,
-            update_tagging_api_config
-        )
-        
-        if allowed_labels:
-            update_allowed_labels(allowed_labels.model_dump())
-            logger.info("标签白名单已更新")
-        
-        if scene_presets:
-            update_scene_presets(scene_presets.presets)
-            logger.info("场景预设已更新")
-        
+        from config.constants import update_tagging_api_config
+
         if api_config:
             update_tagging_api_config(api_config.model_dump())
             logger.info("标签 API 配置已更新")
-        
+
         return ApiResponse.success_response(data={
             "message": "配置已更新"
         })
@@ -189,20 +164,18 @@ async def update_tagging_config_api(
 async def get_all_config_api():
     """
     获取所有配置
-    
+
     返回所有系统的配置信息
-    注意：提示词模板会根据标签白名单自动生成
+    注意：标签白名单（mood、energy、scene、region、subculture、genre）现在通过后台配置文件 config/tagging_config.yaml 管理
     """
     try:
         from config.settings import get_recommend_config, get_user_profile_config, get_algorithm_config
-        from config.constants import get_allowed_labels, get_scene_presets, get_tagging_api_config
-        
+        from config.constants import get_tagging_api_config
+
         return ApiResponse.success_response(data={
             "recommend": get_recommend_config(),
             "user_profile": get_user_profile_config(),
             "algorithm": get_algorithm_config(),
-            "allowed_labels": get_allowed_labels(),
-            "scene_presets": get_scene_presets(),
             "api_config": get_tagging_api_config()
         })
     except Exception as e:

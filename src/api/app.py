@@ -2,6 +2,7 @@
 FastAPI 主应用文件
 """
 import logging
+import os
 import sqlite3
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
@@ -18,7 +19,15 @@ from src.core.exceptions import (
 )
 from src.core.config_validator import validate_on_startup
 
-logger = setup_logger("api", level=logging.INFO)
+# 从环境变量读取日志级别，默认为 INFO
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+log_level = getattr(logging, LOG_LEVEL, logging.INFO)
+
+# 打印日志级别信息
+print(f"[API] LOG_LEVEL 环境变量: {LOG_LEVEL}")
+print(f"[API] 实际日志级别: {logging.getLevelName(log_level)}")
+
+logger = setup_logger("api", level=log_level, console_level=log_level)
 
 # 创建 FastAPI 应用
 app = FastAPI(
