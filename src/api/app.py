@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from src.api.routes import recommend, query, tagging, analyze
 from src.utils.logger import setup_logger
+from config.settings import CORS_ORIGINS
 
 logger = setup_logger("api", "api.log", level=logging.INFO)
 
@@ -16,10 +17,10 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# 配置 CORS
+# 配置 CORS - 从环境变量读取允许的来源
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 生产环境应该设置具体的域名
+    allow_origins=CORS_ORIGINS,  # 从环境变量读取，默认允许本地开发端口
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -10,7 +10,7 @@ import requests
 import logging
 from typing import Optional, Tuple, Dict, Any
 
-from config.settings import NAV_DB, SEM_DB, API_KEY, BASE_URL, MODEL, LOG_DIR, API_PROVIDER, API_CONFIG
+from config.settings import NAV_DB, SEM_DB, get_api_key, BASE_URL, MODEL, LOG_DIR, API_PROVIDER, API_CONFIG
 from config.constants import ALLOWED_LABELS, PROMPT_TEMPLATE
 from src.core.database import connect_nav_db, connect_sem_db
 from src.core.schema import init_semantic_db
@@ -76,7 +76,7 @@ def nim_classify(title: str, artist: str, album: str) -> Tuple[Optional[Dict[str
         title=title, artist=artist, album=album
     )
 
-    headers = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
+    headers = {"Authorization": f"Bearer {get_api_key()}", "Content-Type": "application/json"}
     payload = {
         "model": MODEL,
         "messages": [{"role": "user", "content": prompt}],

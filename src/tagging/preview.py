@@ -8,7 +8,7 @@ import sys
 import logging
 from typing import Optional, Dict, Any, Tuple
 
-from config.settings import API_KEY, BASE_URL, MODEL, API_PROVIDER, API_CONFIG
+from config.settings import get_api_key, BASE_URL, MODEL, API_PROVIDER, API_CONFIG
 from config.constants import ALLOWED_LABELS, PROMPT_TEMPLATE
 from src.utils.common import setup_windows_encoding
 from src.utils.logger import setup_logger
@@ -68,7 +68,7 @@ def preview_single_song(title: str, artist: str, album: str) -> Tuple[Optional[D
 
     for attempt in range(max_retries):
         try:
-            headers = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
+            headers = {"Authorization": f"Bearer {get_api_key()}", "Content-Type": "application/json"}
             payload = {
                 "model": MODEL,
                 "messages": [{"role": "user", "content": prompt}],

@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
 
-from src.recommend.engine import recommend, get_user_id, get_user_songs
+from src.recommend.engine import recommend, get_user_songs
 from src.core.database import connect_nav_db
 from src.utils.logger import setup_logger
 
@@ -46,7 +46,12 @@ async def get_recommendations(request: RecommendRequest):
         if request.user_id:
             user_id = request.user_id
         else:
-            user_id = get_user_id(nav_conn)
+            # API 环境下自动选择第一个用户（避免调用 input()）
+            cursor = nav_conn.execute("SELECT id FROM user LIMIT 1")
+            user_row = cursor.fetchone()
+            if not user_row:
+                raise HTTPException(status_code=404, detail="未找到用户")
+            user_id = user_row[0]
         
         # 获取用户歌曲数
         user_songs = get_user_songs(nav_conn, user_id)

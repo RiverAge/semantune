@@ -45,5 +45,5 @@ Classify:
 Title: {title}
 Artist: {artist}
 Album: {album}
-<|控制台_id|><|start_header_id|>assistant<|end_header_id|>
+<|eot_id|><|start_header_id|>assistant<|end_header_id|>
 """

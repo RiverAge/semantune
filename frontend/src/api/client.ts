@@ -37,9 +37,15 @@ api.interceptors.response.use(
 
 // 推荐相关 API
 export const recommendApi = {
-  // 获取推荐列表
+  // 获取推荐列表（POST 方法，使用 user_id）
   getRecommendations: async (params: RecommendRequest) => {
-    const response = await api.get<ApiResponse<Recommendation[]>>('/recommend/list', { params });
+    const response = await api.post<ApiResponse<{ user_id: string; recommendations: Recommendation[]; stats: any }>>('/recommend', params);
+    return response.data;
+  },
+
+  // 获取推荐列表（GET 方法，使用 username）
+  getRecommendationsByUsername: async (username: string, limit: number = 30) => {
+    const response = await api.get<ApiResponse<Recommendation[]>>('/recommend/list', { params: { username, limit } });
     return response.data;
   },
 

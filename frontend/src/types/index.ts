@@ -20,6 +20,13 @@ export interface Recommendation {
 }
 
 export interface RecommendRequest {
+  user_id?: string;
+  limit?: number;
+  filter_recent?: boolean;
+  diversity?: boolean;
+}
+
+export interface RecommendRequestGet {
   username: string;
   limit?: number;
 }

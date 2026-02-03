@@ -32,7 +32,6 @@ ENV/
 *~
 
 # Project specific
-*.log
 semantic_processing.log
 
 # Environment variables

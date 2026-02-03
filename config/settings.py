@@ -25,15 +25,27 @@ EXPORT_DIR = str(BASE_DIR / "exports")
 os.makedirs(EXPORT_DIR, exist_ok=True)
 
 # LLM API 配置（支持任何 OpenAI 兼容的 API）
-# 从环境变量读取 API Key，如果未设置则抛出异常
-API_KEY = os.getenv("SEMANTUNE_API_KEY")
-if not API_KEY:
-    raise ValueError(
-        "SEMANTUNE_API_KEY 环境变量未设置。请设置环境变量或创建 .env 文件。\n"
-        "示例: export SEMANTUNE_API_KEY='your-api-key-here'"
-    )
 BASE_URL = "https://integrate.api.nvidia.com/v1/chat/completions"  # OpenAI 兼容的 API 端点
 MODEL = "meta/llama-3.3-70b-instruct"  # 模型名称
+
+
+def get_api_key() -> str:
+    """
+    获取 API Key，延迟验证以避免模块导入时抛出异常
+    
+    Returns:
+        API Key 字符串
+        
+    Raises:
+        ValueError: 当 API_KEY 未设置时抛出
+    """
+    api_key = os.getenv("SEMANTUNE_API_KEY")
+    if not api_key:
+        raise ValueError(
+            "SEMANTUNE_API_KEY 环境变量未设置。请设置环境变量或创建 .env 文件。\n"
+            "示例: export SEMANTUNE_API_KEY='your-api-key-here'"
+        )
+    return api_key
 
 # API 提供商类型（用于选择提示词格式）
 # 可选值: "openai", "nvidia", "anthropic", "custom"
@@ -79,3 +91,9 @@ ALGORITHM_CONFIG = {
     "exploration_pool_start": 0.25,     # 探索型池起始位置（比例）
     "exploration_pool_end": 0.5,        # 探索型池结束位置（比例）
 }
+
+# CORS 配置
+CORS_ORIGINS = os.getenv(
+    "CORS_ORIGINS",
+    "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000"
+).split(",")

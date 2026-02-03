@@ -21,7 +21,7 @@ export default function Recommend() {
       setLoading(true);
       setError(null);
       const [recResponse, profileResponse] = await Promise.all([
-        recommendApi.getRecommendations({ username, limit }),
+        recommendApi.getRecommendationsByUsername(username, limit),
         recommendApi.getUserProfile(username),
       ]);
 
