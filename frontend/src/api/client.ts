@@ -179,4 +179,34 @@ export const analyzeApi = {
   },
 };
 
+// 配置管理相关 API
+export const configApi = {
+  // 获取 API 配置
+  getConfig: async () => {
+    const response = await api.get<ApiResponse<{
+      api_key: string;
+      base_url: string;
+      model: string;
+      is_configured: boolean;
+    }>>('/config/api');
+    return response.data;
+  },
+
+  // 更新 API 配置
+  updateConfig: async (config: { apiKey: string; baseUrl?: string; model?: string }) => {
+    const response = await api.post<ApiResponse<{ message: string; api_key: string }>>('/config/api', {
+      api_key: config.apiKey,
+      base_url: config.baseUrl,
+      model: config.model,
+    });
+    return response.data;
+  },
+
+  // 重置 API 配置
+  resetConfig: async () => {
+    const response = await api.delete<ApiResponse<{ message: string }>>('/config/api');
+    return response.data;
+  },
+};
+
 export default api;

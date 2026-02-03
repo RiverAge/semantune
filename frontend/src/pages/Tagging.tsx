@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Tag, Play, Clock, AlertCircle, CheckCircle, History, TestTube, Settings, Save } from 'lucide-react';
-import { taggingApi } from '../api/client';
+import { taggingApi, configApi } from '../api/client';
 import type { TaggingStatus } from '../types';
 
 type TabType = 'batch' | 'test';
@@ -69,13 +69,20 @@ export default function Tagging() {
     };
   }, [isConfigured]);
 
-  const loadConfig = () => {
+  const loadConfig = async () => {
     try {
-      const savedConfig = localStorage.getItem('tagging_config');
-      if (savedConfig) {
-        const parsed = JSON.parse(savedConfig);
-        setConfig(parsed);
-        setIsConfigured(true);
+      const response = await configApi.getConfig();
+      if (response.success && response.data) {
+        const { api_key, base_url, model, is_configured } = response.data;
+        setConfig({
+          apiKey: api_key || '',
+          baseUrl: base_url,
+          model: model,
+        });
+        setIsConfigured(is_configured);
+        if (!is_configured) {
+          setShowConfig(true);
+        }
       } else {
         setShowConfig(true);
       }
@@ -85,7 +92,7 @@ export default function Tagging() {
     }
   };
 
-  const handleSaveConfig = () => {
+  const handleSaveConfig = async () => {
     setConfigError(null);
     setConfigSuccess(null);
 
@@ -105,21 +112,37 @@ export default function Tagging() {
     }
 
     try {
-      localStorage.setItem('tagging_config', JSON.stringify(config));
-      setIsConfigured(true);
-      setShowConfig(false);
-      setConfigSuccess('配置已保存');
-      setTimeout(() => setConfigSuccess(null), 3000);
-    } catch (err) {
-      setConfigError('保存配置失败');
+      const response = await configApi.updateConfig({
+        apiKey: config.apiKey,
+        baseUrl: config.baseUrl,
+        model: config.model,
+      });
+      if (response.success) {
+        setIsConfigured(true);
+        setShowConfig(false);
+        setConfigSuccess('配置已保存');
+        setTimeout(() => setConfigSuccess(null), 3000);
+      } else {
+        setConfigError('保存配置失败');
+      }
+    } catch (err: any) {
+      console.error('保存配置失败:', err);
+      setConfigError(err.message || '保存配置失败');
     }
   };
 
-  const handleResetConfig = () => {
-    localStorage.removeItem('tagging_config');
-    setConfig(DEFAULT_CONFIG);
-    setIsConfigured(false);
-    setShowConfig(true);
+  const handleResetConfig = async () => {
+    try {
+      const response = await configApi.resetConfig();
+      if (response.success) {
+        setConfig(DEFAULT_CONFIG);
+        setIsConfigured(false);
+        setShowConfig(true);
+      }
+    } catch (err: any) {
+      console.error('重置配置失败:', err);
+      setConfigError(err.message || '重置配置失败');
+    }
   };
 
   // 监听状态变化，如果任务正在运行则建立SSE连接

@@ -41,8 +41,8 @@ EXPORT_DIR = str(BASE_DIR / "exports")
 os.makedirs(EXPORT_DIR, exist_ok=True)
 
 # LLM API 配置（支持任何 OpenAI 兼容的 API）
-BASE_URL = "https://integrate.api.nvidia.com/v1/chat/completions"  # OpenAI 兼容的 API 端点
-MODEL = "meta/llama-3.3-70b-instruct"  # 模型名称
+BASE_URL = os.getenv("SEMANTUNE_BASE_URL", "https://integrate.api.nvidia.com/v1/chat/completions")  # OpenAI 兼容的 API 端点
+MODEL = os.getenv("SEMANTUNE_MODEL", "meta/llama-3.3-70b-instruct")  # 模型名称
 
 
 def get_api_key() -> str:
@@ -62,6 +62,15 @@ def get_api_key() -> str:
             "示例: export SEMANTUNE_API_KEY='your-api-key-here'"
         )
     return api_key
+
+
+def reload_env():
+    """
+    重新加载 .env 文件中的环境变量
+    
+    当配置更新后调用此函数以使新配置生效
+    """
+    load_dotenv(override=True)
 
 # API 提供商类型（用于选择提示词格式）
 # 可选值: "openai", "nvidia", "anthropic", "custom"

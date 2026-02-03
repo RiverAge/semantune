@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
-from src.api.routes import recommend, query, tagging, analyze
+from src.api.routes import recommend, query, tagging, analyze, config
 from src.utils.logger import setup_logger
 from config.settings import CORS_ORIGINS, VERSION, NAV_DB, SEM_DB
 from src.core.exceptions import (
@@ -47,6 +47,7 @@ app.include_router(recommend.router, prefix="/api/v1/recommend", tags=["推荐"]
 app.include_router(query.router, prefix="/api/v1/query", tags=["查询"])
 app.include_router(tagging.router, prefix="/api/v1/tagging", tags=["标签生成"])
 app.include_router(analyze.router, prefix="/api/v1/analyze", tags=["分析"])
+app.include_router(config.router, prefix="/api/v1/config", tags=["配置管理"])
 
 
 @app.get("/")

@@ -27,10 +27,6 @@ DB_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_music_semantic_scene ON music_semantic(scene)",
     "CREATE INDEX IF NOT EXISTS idx_music_semantic_confidence ON music_semantic(confidence)",
     "CREATE INDEX IF NOT EXISTS idx_music_semantic_updated_at ON music_semantic(updated_at)",
-    # annotation 表索引
-    "CREATE INDEX IF NOT EXISTS idx_annotation_user_id ON annotation(user_id)",
-    "CREATE INDEX IF NOT EXISTS idx_annotation_item_id ON annotation(item_id)",
-    "CREATE INDEX IF NOT EXISTS idx_annotation_user_item ON annotation(user_id, item_id)",
 ]
 
 # 缓存配置
