@@ -9,6 +9,13 @@ import type {
   TaggingPreview,
   AnalysisStats,
   UserStats,
+  RecommendConfig,
+  UserProfileConfig,
+  AlgorithmConfig,
+  AllowedLabels,
+  ScenePresets,
+  TaggingApiConfig,
+  AllConfig,
 } from '../types';
 
 const api = axios.create({
@@ -28,7 +35,7 @@ api.interceptors.request.use(
 
 // 响应拦截器
 api.interceptors.response.use(
-  (response) => response,
+  (response) => response.data,
   (error) => {
     // 后端返回的错误格式: { success: false, error: { message: string, type: string, details: object } }
     const errorData = error.response?.data?.error;
@@ -50,20 +57,17 @@ api.interceptors.response.use(
 export const recommendApi = {
   // 获取推荐列表（POST 方法，使用 user_id）
   getRecommendations: async (params: RecommendRequest) => {
-    const response = await api.post<ApiResponse<{ user_id: string; recommendations: Recommendation[]; stats: any }>>('/recommend', params);
-    return response.data;
+    return await api.post<ApiResponse<{ user_id: string; recommendations: Recommendation[]; stats: any }>>('/recommend', params);
   },
 
   // 获取推荐列表（GET 方法，使用 username）
   getRecommendationsByUsername: async (username: string, limit: number = 30) => {
-    const response = await api.get<ApiResponse<Recommendation[]>>('/recommend/list', { params: { username, limit } });
-    return response.data;
+    return await api.get<ApiResponse<Recommendation[]>>('/recommend/list', { params: { username, limit } });
   },
 
   // 获取用户画像
   getUserProfile: async (username: string) => {
-    const response = await api.get<ApiResponse<UserStats>>(`/recommend/profile/${username}`);
-    return response.data;
+    return await api.get<ApiResponse<UserStats>>(`/recommend/profile/${username}`);
   },
 };
 
@@ -71,19 +75,17 @@ export const recommendApi = {
 export const queryApi = {
   // 查询歌曲
   querySongs: async (params: QueryRequest) => {
-    const response = await api.get<ApiResponse<Song[]>>('/query', { params });
-    return response.data;
+    return await api.get<ApiResponse<Song[]>>('/query', { params });
   },
 
   // 获取所有标签选项
   getTagOptions: async () => {
-    const response = await api.get<ApiResponse<{
+    return await api.get<ApiResponse<{
       moods: string[];
       energies: string[];
       genres: string[];
       regions: string[];
     }>>('/query/options');
-    return response.data;
   },
 };
 
@@ -91,43 +93,38 @@ export const queryApi = {
 export const taggingApi = {
   // 获取标签生成状态
   getStatus: async () => {
-    const response = await api.get<ApiResponse<TaggingStatus>>('/tagging/status');
-    return response.data;
+    return await api.get<ApiResponse<TaggingStatus>>('/tagging/status');
   },
 
   // 开始标签生成
   startTagging: async () => {
-    const response = await api.post<ApiResponse<{ message: string }>>('/tagging/start');
-    return response.data;
+    return await api.post<ApiResponse<{ message: string }>>('/tagging/start');
   },
 
   // 中止标签生成
   stopTagging: async () => {
-    const response = await api.post<ApiResponse<{ message: string }>>('/tagging/stop');
-    return response.data;
+    return await api.post<ApiResponse<{ message: string }>>('/tagging/stop');
   },
 
   // 测试单首歌曲标签生成
   testTag: async (title: string, artist: string, album: string) => {
-    const response = await api.post<ApiResponse<{
+    return await api.post<ApiResponse<{
       title: string;
       artist: string;
       album: string;
       tags: any;
       raw_response: string;
     }>>('/tagging/generate', { title, artist, album });
-    return response.data;
   },
 
   // 获取标签生成历史记录
   getHistory: async (limit: number = 20, offset: number = 0) => {
-    const response = await api.get<ApiResponse<{
+    return await api.get<ApiResponse<{
       items: any[];
       total: number;
       limit: number;
       offset: number;
     }>>('/tagging/history', { params: { limit, offset } });
-    return response.data;
   },
 
   // SSE 流式获取进度
@@ -162,20 +159,17 @@ export const taggingApi = {
 export const analyzeApi = {
   // 获取整体统计
   getStats: async () => {
-    const response = await api.get<ApiResponse<AnalysisStats>>('/analyze/overview');
-    return response.data;
+    return await api.get<ApiResponse<AnalysisStats>>('/analyze/overview');
   },
 
   // 获取用户统计
   getUserStats: async (username: string) => {
-    const response = await api.get<ApiResponse<UserStats>>(`/recommend/profile/${username}`);
-    return response.data;
+    return await api.get<ApiResponse<UserStats>>(`/recommend/profile/${username}`);
   },
 
   // 获取所有用户列表
   getUsers: async () => {
-    const response = await api.get<ApiResponse<{ users: string[] }>>('/recommend/users');
-    return response.data;
+    return await api.get<ApiResponse<{ users: string[] }>>('/recommend/users');
   },
 };
 
@@ -183,29 +177,67 @@ export const analyzeApi = {
 export const configApi = {
   // 获取 API 配置
   getConfig: async () => {
-    const response = await api.get<ApiResponse<{
+    return await api.get<ApiResponse<{
       api_key: string;
       base_url: string;
       model: string;
       is_configured: boolean;
     }>>('/config/api');
-    return response.data;
   },
 
   // 更新 API 配置
   updateConfig: async (config: { apiKey: string; baseUrl?: string; model?: string }) => {
-    const response = await api.post<ApiResponse<{ message: string; api_key: string }>>('/config/api', {
+    return await api.post<ApiResponse<{ message: string; api_key: string }>>('/config/api', {
       api_key: config.apiKey,
       base_url: config.baseUrl,
       model: config.model,
     });
-    return response.data;
   },
 
   // 重置 API 配置
   resetConfig: async () => {
-    const response = await api.delete<ApiResponse<{ message: string }>>('/config/api');
-    return response.data;
+    return await api.delete<ApiResponse<{ message: string }>>('/config/api');
+  },
+
+  // 获取推荐配置
+  getRecommendConfig: async () => {
+    return await api.get<ApiResponse<{
+      recommend: RecommendConfig;
+      user_profile: UserProfileConfig;
+      algorithm: AlgorithmConfig;
+    }>>('/config/recommend');
+  },
+
+  // 更新推荐配置
+  updateRecommendConfig: async (params: {
+    recommend?: RecommendConfig;
+    user_profile?: UserProfileConfig;
+    algorithm?: AlgorithmConfig;
+  }) => {
+    return await api.put<ApiResponse<{ message: string }>>('/config/recommend', params);
+  },
+
+  // 获取标签配置
+  getTaggingConfig: async () => {
+    return await api.get<ApiResponse<{
+      allowed_labels: AllowedLabels;
+      scene_presets: ScenePresets;
+      api_config: TaggingApiConfig;
+    }>>('/config/tagging');
+  },
+
+  // 更新标签配置
+  updateTaggingConfig: async (params: {
+    allowed_labels?: AllowedLabels;
+    scene_presets?: ScenePresets;
+    api_config?: TaggingApiConfig;
+  }) => {
+    return await api.put<ApiResponse<{ message: string }>>('/config/tagging', params);
+  },
+
+  // 获取所有配置
+  getAllConfig: async () => {
+    return await api.get<ApiResponse<AllConfig>>('/config/all');
   },
 };
 

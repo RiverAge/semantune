@@ -5,6 +5,7 @@ import Recommend from './pages/Recommend';
 import Query from './pages/Query';
 import Tagging from './pages/Tagging';
 import Analyze from './pages/Analyze';
+import Settings from './pages/Settings';
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
           <Route path="/query" element={<Query />} />
           <Route path="/tagging" element={<Tagging />} />
           <Route path="/analyze" element={<Analyze />} />
+          <Route path="/settings" element={<Settings />} />
         </Routes>
       </Layout>
     </BrowserRouter>

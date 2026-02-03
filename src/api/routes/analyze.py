@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 
-from config.constants import ALLOWED_LABELS
+from config.constants import get_allowed_labels
 from src.core.database import sem_db_context
 from src.core.response import ApiResponse
 from src.core.exceptions import SemantuneException
@@ -18,7 +18,11 @@ logger = setup_logger("api", level=logging.INFO)
 router = APIRouter()
 
 # 有效的字段列表
-VALID_FIELDS = list(ALLOWED_LABELS.keys())
+def get_valid_fields() -> List[str]:
+    """获取有效的字段列表"""
+    return list(get_allowed_labels().keys())
+
+VALID_FIELDS = get_valid_fields()
 
 
 class DistributionResponse(BaseModel):

@@ -99,3 +99,67 @@ export interface UserStats {
   top_genres: Array<{ genre: string; count: number }>;
   top_moods: Array<{ mood: string; count: number }>;
 }
+
+// 配置相关类型
+export interface RecommendConfig {
+  default_limit: number;
+  recent_filter_count: number;
+  diversity_max_per_artist: number;
+  diversity_max_per_album: number;
+  exploration_ratio: number;
+  tag_weights: {
+    mood: number;
+    energy: number;
+    genre: number;
+    region: number;
+  };
+}
+
+export interface UserProfileConfig {
+  play_count: number;
+  starred: number;
+  in_playlist: number;
+  time_decay_days: number;
+  min_decay: number;
+}
+
+export interface AlgorithmConfig {
+  exploitation_pool_multiplier: number;
+  exploration_pool_start: number;
+  exploration_pool_end: number;
+  randomness: number;
+}
+
+export interface AllowedLabels {
+  mood: string[];
+  energy: string[];
+  scene: string[];
+  region: string[];
+  subculture: string[];
+  genre: string[];
+}
+
+export interface ScenePresets {
+  [key: string]: {
+    mood: string[];
+    energy: string[];
+  };
+}
+
+export interface TaggingApiConfig {
+  timeout: number;
+  max_tokens: number;
+  temperature: number;
+  retry_delay: number;
+  max_retries: number;
+  retry_backoff: number;
+}
+
+export interface AllConfig {
+  recommend: RecommendConfig;
+  user_profile: UserProfileConfig;
+  algorithm: AlgorithmConfig;
+  allowed_labels: AllowedLabels;
+  scene_presets: ScenePresets;
+  api_config: TaggingApiConfig;
+}

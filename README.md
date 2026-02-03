@@ -24,6 +24,13 @@
 
 ### 📝 最近更新
 
+**v1.4.0** (2026-02-03)
+- ✅ 代码重构 - 拆分大文件，提升代码可维护性
+- ✅ 前端组件拆分 - Tagging.tsx 和 Settings.tsx 拆分为多个子组件
+- ✅ 后端模块拆分 - Repository、Service、API 路由层模块化
+- ✅ 配置路由拆分 - config.py 拆分为 API 配置和 YAML 配置管理
+- ✅ 标签路由拆分 - tagging.py 拆分为 SSE 和后台任务模块
+
 **v1.3.0** (2026-02-03)
 - ✅ 配置管理重构 - API Key 配置从前端 localStorage 迁移到后端 .env 文件
 - ✅ 新增配置管理 API - 支持通过 API 获取、更新、重置配置
@@ -135,13 +142,18 @@ semantune/
 │   │   └── exceptions.py     # 异常定义和处理器
 │   ├── repositories/         # Repository 层（数据访问）
 │   │   ├── user_repository.py      # 用户数据访问
-│   │   ├── semantic_repository.py  # 语义标签数据访问
+│   │   ├── semantic_repository.py  # 语义标签数据访问（主入口）
+│   │   ├── semantic_query.py       # 语义查询模块
+│   │   ├── semantic_stats.py       # 语义统计模块
 │   │   ├── navidrome_repository.py # Navidrome 数据访问
 │   │   └── song_repository.py      # 歌曲数据访问
 │   ├── services/             # Service 层（业务逻辑）
 │   │   ├── service_factory.py      # 服务工厂（依赖注入）
-│   │   ├── tagging_service.py      # 标签生成服务
-│   │   ├── recommend_service.py    # 推荐服务
+│   │   ├── tagging_service.py      # 标签生成服务（主入口）
+│   │   ├── llm_client.py           # LLM API 客户端
+│   │   ├── recommend_service.py    # 推荐服务（主入口）
+│   │   ├── recommend_similarity.py # 相似度计算模块
+│   │   ├── recommend_diversity.py  # 多样性控制模块
 │   │   ├── profile_service.py      # 用户画像服务
 │   │   ├── query_service.py        # 查询服务
 │   │   └── analyze_service.py      # 分析服务
@@ -155,7 +167,12 @@ semantune/
 │   │   └── routes/           # API 路由
 │   │       ├── recommend.py  # 推荐接口
 │   │       ├── query.py      # 查询接口
-│   │       ├── tagging.py    # 标签生成接口
+│   │       ├── tagging.py    # 标签生成接口（主入口）
+│   │       ├── tagging_sse.py # SSE 进度流模块
+│   │       ├── tagging_tasks.py # 后台任务模块
+│   │       ├── config.py     # 配置接口（主入口）
+│   │       ├── config_api.py # API 配置管理
+│   │       ├── config_yaml.py # YAML 配置管理
 │   │       └── analyze.py    # 分析接口
 │   └── utils/                # 工具函数
 │       ├── common.py         # 通用工具函数
@@ -166,6 +183,13 @@ semantune/
 │   │   ├── api/              # API 客户端
 │   │   ├── components/       # 通用组件
 │   │   ├── pages/            # 页面组件
+│   │   │   ├── tagging/      # 标签页面子组件
+│   │   │   │   ├── TaggingConfig.tsx
+│   │   │   │   ├── BatchTagging.tsx
+│   │   │   │   └── TagTest.tsx
+│   │   │   └── settings/     # 设置页面子组件
+│   │   │       ├── RecommendConfigPanel.tsx
+│   │   │       └── TaggingConfigPanel.tsx
 │   │   ├── types/            # TypeScript 类型定义
 │   │   ├── App.tsx           # 主应用组件
 │   │   └── main.tsx          # 入口文件

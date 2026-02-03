@@ -2,16 +2,12 @@
 标签生成服务 - 封装 LLM 标签生成的业务逻辑
 """
 
-import re
-import json
-import time
-import requests
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Dict, Any, List
 
-from config.settings import get_api_key, BASE_URL, MODEL, API_CONFIG
-from config.constants import PROMPT_TEMPLATE
+from config.settings import MODEL
 from src.repositories.navidrome_repository import NavidromeRepository
 from src.repositories.semantic_repository import SemanticRepository
+from .llm_client import LLMClient
 
 
 class TaggingService:
@@ -31,74 +27,7 @@ class TaggingService:
         """
         self.nav_repo = nav_repo
         self.sem_repo = sem_repo
-
-    def _safe_extract_json(self, text: str) -> Optional[Dict[str, Any]]:
-        """
-        从 LLM 响应中提取 JSON
-
-        Args:
-            text: LLM 返回的原始文本
-
-        Returns:
-            解析后的 JSON 字典，如果解析失败则返回 None
-        """
-        try:
-            # 移除 markdown 代码块
-            clean_text = re.sub(r"```json\s*|\s*```", "", text).strip()
-            # 寻找 JSON 对象
-            matches = re.findall(r"\{.*\}", clean_text, re.S)
-            if matches:
-                return json.loads(matches[-1])  # 取最后一个，应对 Reasoning 模型
-
-            # 针对截断的保底尝试
-            if clean_text.startswith("{") and not clean_text.endswith("}"):
-                fixed = clean_text + '"}'
-                return json.loads(fixed)
-        except (json.JSONDecodeError, ValueError, AttributeError):
-            return None
-
-    def _call_llm_api(self, title: str, artist: str, album: str) -> Tuple[Optional[Dict[str, Any]], str]:
-        """
-        调用 LLM API 生成标签
-
-        Args:
-            title: 歌曲标题
-            artist: 歌手名称
-            album: 专辑名称
-
-        Returns:
-            Tuple[Optional[Dict[str, Any]], str]:
-                - 解析后的标签字典
-                - 原始 API 响应内容
-        """
-        prompt = PROMPT_TEMPLATE.format(title=title, artist=artist, album=album)
-
-        headers = {"Authorization": f"Bearer {get_api_key()}", "Content-Type": "application/json"}
-        payload = {
-            "model": MODEL,
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": API_CONFIG["temperature"],
-            "max_tokens": API_CONFIG["max_tokens"]
-        }
-
-        max_retries = API_CONFIG["max_retries"]
-        retry_delay = API_CONFIG["retry_delay"]
-        retry_backoff = API_CONFIG["retry_backoff"]
-
-        for attempt in range(max_retries):
-            try:
-                r = requests.post(BASE_URL, headers=headers, json=payload, timeout=API_CONFIG["timeout"])
-                r.raise_for_status()
-                content = r.json()['choices'][0]['message']['content']
-                return self._safe_extract_json(content), content
-            except requests.exceptions.RequestException as e:
-                if attempt < max_retries - 1:
-                    delay = retry_delay * (retry_backoff ** attempt)
-                    time.sleep(delay)
-                else:
-                    raise
-
-        return None, ""
+        self.llm_client = LLMClient()
 
     def generate_tag(self, title: str, artist: str, album: str = "") -> Dict[str, Any]:
         """
@@ -112,7 +41,7 @@ class TaggingService:
         Returns:
             包含标签和原始响应的字典
         """
-        tags, raw_response = self._call_llm_api(title, artist, album)
+        tags, raw_response = self.llm_client.call_llm_api(title, artist, album)
 
         if not tags:
             raise ValueError("标签生成失败")

@@ -4,7 +4,7 @@
 
 from typing import List, Dict, Any, Optional
 
-from config.constants import ALLOWED_LABELS, SCENE_PRESETS
+from config.constants import get_allowed_labels, get_scene_presets
 from src.repositories.song_repository import SongRepository
 
 
@@ -104,7 +104,8 @@ class QueryService:
         Returns:
             情绪标签列表
         """
-        return list(ALLOWED_LABELS.get('mood', set()))
+        allowed_labels = get_allowed_labels()
+        return list(allowed_labels.get('mood', set()))
 
     def get_available_energies(self) -> List[str]:
         """
@@ -113,7 +114,8 @@ class QueryService:
         Returns:
             能量标签列表
         """
-        return list(ALLOWED_LABELS.get('energy', set()))
+        allowed_labels = get_allowed_labels()
+        return list(allowed_labels.get('energy', set()))
 
     def get_available_genres(self) -> List[str]:
         """
@@ -122,7 +124,8 @@ class QueryService:
         Returns:
             流派标签列表
         """
-        return list(ALLOWED_LABELS.get('genre', set()))
+        allowed_labels = get_allowed_labels()
+        return list(allowed_labels.get('genre', set()))
 
     def get_available_regions(self) -> List[str]:
         """
@@ -131,4 +134,5 @@ class QueryService:
         Returns:
             地区标签列表
         """
-        return list(ALLOWED_LABELS.get('region', set()))
+        allowed_labels = get_allowed_labels()
+        return list(allowed_labels.get('region', set()))

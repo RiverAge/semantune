@@ -9,6 +9,9 @@ requests>=2.31.0
 # Environment Variables
 python-dotenv>=1.0.0
 
+# YAML Configuration
+pyyaml>=6.0.0
+
 # Database (SQLite is built-in, no package needed)
 
 # Optional: For development

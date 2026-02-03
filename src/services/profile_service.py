@@ -7,8 +7,8 @@ from typing import Dict, Any, Optional
 from collections import defaultdict
 from datetime import datetime
 
-from config.settings import WEIGHT_CONFIG
-from config.constants import ALLOWED_LABELS, SECONDS_PER_DAY
+from config.settings import get_user_profile_config
+from config.constants import get_allowed_labels, SECONDS_PER_DAY
 from src.repositories.user_repository import UserRepository
 from src.repositories.semantic_repository import SemanticRepository
 
@@ -41,15 +41,16 @@ class ProfileService:
         Returns:
             衰减系数，范围 [min_decay, 1.0]
         """
+        weight_config = get_user_profile_config()
         if not play_date:
-            return WEIGHT_CONFIG['min_decay']
+            return weight_config.get('min_decay', 0.3)
 
         now = time.time()
         days_ago = (now - play_date) / SECONDS_PER_DAY
 
         decay = max(
-            WEIGHT_CONFIG['min_decay'],
-            1.0 - days_ago / WEIGHT_CONFIG['time_decay_days']
+            weight_config.get('min_decay', 0.3),
+            1.0 - days_ago / weight_config.get('time_decay_days', 90)
         )
 
         return decay
@@ -65,18 +66,19 @@ class ProfileService:
         Returns:
             综合权重值
         """
+        weight_config = get_user_profile_config()
         weight = 0.0
 
         # 1. 播放次数基础权重
-        weight += play_data['play_count'] * WEIGHT_CONFIG['play_count']
+        weight += play_data['play_count'] * weight_config.get('play_count', 1.0)
 
         # 2. 收藏加分
         if play_data['starred']:
-            weight += WEIGHT_CONFIG['starred']
+            weight += weight_config.get('starred', 10.0)
 
         # 3. 歌单加分
         if playlist_count > 0:
-            weight += WEIGHT_CONFIG['in_playlist'] * playlist_count
+            weight += weight_config.get('in_playlist', 8.0) * playlist_count
 
         # 4. 时间衰减
         decay = self._calculate_time_decay(play_data['play_date'])
@@ -94,7 +96,8 @@ class ProfileService:
         Returns:
             标签类型 (mood, energy, genre, region)，如果不在任何类型中则返回 None
         """
-        for tag_type, allowed_tags in ALLOWED_LABELS.items():
+        allowed_labels = get_allowed_labels()
+        for tag_type, allowed_tags in allowed_labels.items():
             if tag in allowed_tags:
                 return tag_type
         return None

@@ -3,8 +3,10 @@
 """
 
 import os
+import yaml
 from pathlib import Path
 from dotenv import load_dotenv
+from typing import Dict, Any
 
 # 加载 .env 文件
 load_dotenv()
@@ -13,7 +15,7 @@ load_dotenv()
 BASE_DIR = Path(__file__).parent.parent
 
 # 项目版本
-VERSION = "1.2.0"
+VERSION = "1.4.0"
 
 # 数据库路径
 NAV_DB = str(BASE_DIR / "data" / "navidrome.db")
@@ -72,51 +74,164 @@ def reload_env():
     """
     load_dotenv(override=True)
 
+
 # API 提供商类型（用于选择提示词格式）
 # 可选值: "openai", "nvidia", "anthropic", "custom"
 API_PROVIDER = "nvidia"  # 默认使用 NVIDIA 格式
 
-# 推荐配置
-RECOMMEND_CONFIG = {
-    "default_limit": 30,                # 默认推荐数量
-    "recent_filter_count": 100,         # 过滤最近听过的 N 首歌
-    "diversity_max_per_artist": 1,      # 每个歌手最多推荐 N 首
-    "diversity_max_per_album": 1,       # 每张专辑最多推荐 N 首
-    "exploration_ratio": 0.25,          # 探索型歌曲占比（25%）
-    "tag_weights": {                    # 标签权重
-        "mood": 2.0,                    # 情绪最重要
-        "energy": 1.5,                  # 能量次之
-        "genre": 1.2,                   # 流派
-        "region": 0.8                   # 地区权重较低
-    }
-}
 
-# 用户画像权重配置
-WEIGHT_CONFIG = {
-    "play_count": 1.0,      # 每次播放的基础权重
-    "starred": 10.0,        # 收藏的固定加分
-    "in_playlist": 8.0,     # 每个歌单的加分
-    "time_decay_days": 90,  # 时间衰减周期（天）
-    "min_decay": 0.3        # 最小衰减系数
-}
+# ==================== YAML 配置加载 ====================
 
-# API 调用配置
-API_CONFIG = {
-    "timeout": 60,          # API 请求超时时间（秒）
-    "max_tokens": 1024,     # API 响应最大 token 数
-    "temperature": 0.1,     # API 温度参数
-    "retry_delay": 1,       # 失败重试延迟（秒）
-    "max_retries": 3,       # 最大重试次数
-    "retry_backoff": 2,     # 重试退避倍数（每次重试延迟时间乘以这个值）
-}
+def _load_yaml_config(config_file: str) -> Dict[str, Any]:
+    """
+    从 YAML 文件加载配置
+    
+    Args:
+        config_file: 配置文件名（相对于 config 目录）
+        
+    Returns:
+        配置字典
+    """
+    config_path = BASE_DIR / "config" / config_file
+    
+    if not config_path.exists():
+        raise FileNotFoundError(f"配置文件不存在: {config_path}")
+    
+    with open(config_path, 'r', encoding='utf-8') as f:
+        return yaml.safe_load(f) or {}
 
-# 推荐算法配置
-ALGORITHM_CONFIG = {
-    "exploitation_pool_multiplier": 3,  # 利用型候选池倍数
-    "exploration_pool_start": 0.25,     # 探索型池起始位置（比例）
-    "exploration_pool_end": 0.5,        # 探索型池结束位置（比例）
-    "randomness": 0.0,                  # 随机扰动系数（0-1之间），设置为0以获得稳定的推荐结果
-}
+
+def _save_yaml_config(config_file: str, config: Dict[str, Any]) -> None:
+    """
+    保存配置到 YAML 文件
+    
+    Args:
+        config_file: 配置文件名（相对于 config 目录）
+        config: 配置字典
+    """
+    config_path = BASE_DIR / "config" / config_file
+    
+    with open(config_path, 'w', encoding='utf-8') as f:
+        yaml.dump(config, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+
+
+# ==================== 推荐配置 ====================
+
+def get_recommend_config() -> Dict[str, Any]:
+    """
+    获取推荐配置
+    
+    Returns:
+        推荐配置字典
+    """
+    config = _load_yaml_config("recommend_config.yaml")
+    return config.get("recommend", {})
+
+
+def get_user_profile_config() -> Dict[str, Any]:
+    """
+    获取用户画像权重配置
+    
+    Returns:
+        用户画像配置字典
+    """
+    config = _load_yaml_config("recommend_config.yaml")
+    return config.get("user_profile", {})
+
+
+def get_algorithm_config() -> Dict[str, Any]:
+    """
+    获取推荐算法配置
+    
+    Returns:
+        算法配置字典
+    """
+    config = _load_yaml_config("recommend_config.yaml")
+    return config.get("algorithm", {})
+
+
+def update_recommend_config(config: Dict[str, Any]) -> None:
+    """
+    更新推荐配置
+    
+    Args:
+        config: 新的推荐配置
+    """
+    # 读取现有配置
+    full_config = _load_yaml_config("recommend_config.yaml")
+    
+    # 更新推荐配置
+    full_config["recommend"] = config
+    
+    # 保存
+    _save_yaml_config("recommend_config.yaml", full_config)
+
+
+def update_user_profile_config(config: Dict[str, Any]) -> None:
+    """
+    更新用户画像权重配置
+    
+    Args:
+        config: 新的用户画像配置
+    """
+    # 读取现有配置
+    full_config = _load_yaml_config("recommend_config.yaml")
+    
+    # 更新用户画像配置
+    full_config["user_profile"] = config
+    
+    # 保存
+    _save_yaml_config("recommend_config.yaml", full_config)
+
+
+def update_algorithm_config(config: Dict[str, Any]) -> None:
+    """
+    更新推荐算法配置
+    
+    Args:
+        config: 新的算法配置
+    """
+    # 读取现有配置
+    full_config = _load_yaml_config("recommend_config.yaml")
+    
+    # 更新算法配置
+    full_config["algorithm"] = config
+    
+    # 保存
+    _save_yaml_config("recommend_config.yaml", full_config)
+
+
+# ==================== 兼容性：保持旧接口 ====================
+
+# 为了向后兼容，提供全局变量（从 YAML 加载）
+_RECOMMEND_CONFIG_CACHE = None
+_WEIGHT_CONFIG_CACHE = None
+_ALGORITHM_CONFIG_CACHE = None
+
+
+def RECOMMEND_CONFIG() -> Dict[str, Any]:
+    """获取推荐配置（兼容旧代码）"""
+    global _RECOMMEND_CONFIG_CACHE
+    if _RECOMMEND_CONFIG_CACHE is None:
+        _RECOMMEND_CONFIG_CACHE = get_recommend_config()
+    return _RECOMMEND_CONFIG_CACHE
+
+
+def WEIGHT_CONFIG() -> Dict[str, Any]:
+    """获取用户画像权重配置（兼容旧代码）"""
+    global _WEIGHT_CONFIG_CACHE
+    if _WEIGHT_CONFIG_CACHE is None:
+        _WEIGHT_CONFIG_CACHE = get_user_profile_config()
+    return _WEIGHT_CONFIG_CACHE
+
+
+def ALGORITHM_CONFIG() -> Dict[str, Any]:
+    """获取算法配置（兼容旧代码）"""
+    global _ALGORITHM_CONFIG_CACHE
+    if _ALGORITHM_CONFIG_CACHE is None:
+        _ALGORITHM_CONFIG_CACHE = get_algorithm_config()
+    return _ALGORITHM_CONFIG_CACHE
+
 
 # CORS 配置
 CORS_ORIGINS = os.getenv(

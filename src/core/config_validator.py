@@ -9,10 +9,10 @@ from pathlib import Path
 from config.settings import (
     NAV_DB, SEM_DB, LOG_DIR, EXPORT_DIR,
     BASE_URL, MODEL, get_api_key,
-    RECOMMEND_CONFIG, WEIGHT_CONFIG, API_CONFIG,
+    get_recommend_config, get_user_profile_config,
     CORS_ORIGINS
 )
-from config.constants import ALLOWED_LABELS
+from config.constants import get_allowed_labels, get_tagging_api_config
 
 
 class ConfigValidationError(Exception):
@@ -68,26 +68,29 @@ def validate_config() -> Dict[str, Any]:
         errors.append("MODEL 配置为空")
     
     # 5. 验证推荐配置
-    if RECOMMEND_CONFIG.get("default_limit", 0) <= 0:
+    recommend_config = get_recommend_config()
+    if recommend_config.get("default_limit", 0) <= 0:
         errors.append("RECOMMEND_CONFIG.default_limit 必须大于 0")
     
-    if RECOMMEND_CONFIG.get("default_limit", 0) > 100:
+    if recommend_config.get("default_limit", 0) > 100:
         warnings.append("RECOMMEND_CONFIG.default_limit 大于 100，可能影响性能")
     
     # 6. 验证权重配置
+    weight_config = get_user_profile_config()
     required_weights = ["play_count", "starred", "in_playlist", "time_decay_days", "min_decay"]
     for weight in required_weights:
-        if weight not in WEIGHT_CONFIG:
+        if weight not in weight_config:
             errors.append(f"WEIGHT_CONFIG 缺少必需的权重配置: {weight}")
     
     # 7. 验证 API 配置
-    if API_CONFIG.get("timeout", 0) <= 0:
+    api_config = get_tagging_api_config()
+    if api_config.get("timeout", 0) <= 0:
         errors.append("API_CONFIG.timeout 必须大于 0")
     
-    if API_CONFIG.get("max_tokens", 0) <= 0:
+    if api_config.get("max_tokens", 0) <= 0:
         errors.append("API_CONFIG.max_tokens 必须大于 0")
     
-    if not (0 <= API_CONFIG.get("temperature", 0) <= 2):
+    if not (0 <= api_config.get("temperature", 0) <= 2):
         errors.append("API_CONFIG.temperature 必须在 0-2 之间")
     
     # 8. 验证 CORS 配置
@@ -95,7 +98,8 @@ def validate_config() -> Dict[str, Any]:
         warnings.append("CORS_ORIGINS 为空，可能影响前端访问")
     
     # 9. 验证标签配置
-    if not ALLOWED_LABELS:
+    allowed_labels = get_allowed_labels()
+    if not allowed_labels:
         errors.append("ALLOWED_LABELS 配置为空")
     
     # 构建结果

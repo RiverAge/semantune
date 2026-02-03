@@ -2,16 +2,14 @@
 推荐服务 - 封装音乐推荐的业务逻辑
 """
 
-import random
-import math
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 
-from config.settings import RECOMMEND_CONFIG, WEIGHT_CONFIG, ALGORITHM_CONFIG
-from config.constants import ALLOWED_LABELS
 from src.repositories.user_repository import UserRepository
 from src.repositories.semantic_repository import SemanticRepository
 from src.repositories.song_repository import SongRepository
 from .profile_service import ProfileService
+from .recommend_similarity import SimilarityCalculator
+from .recommend_diversity import DiversityController
 
 
 class RecommendService:
@@ -37,123 +35,8 @@ class RecommendService:
         self.sem_repo = sem_repo
         self.song_repo = song_repo
         self.profile_service = profile_service
-
-    def _calculate_similarity(
-        self,
-        song_tags: Dict[str, str],
-        user_profile: Dict[str, Dict[str, float]]
-    ) -> float:
-        """
-        计算加权相似度（拉开分布）
-
-        Args:
-            song_tags: 歌曲标签
-            user_profile: 用户画像（权重已归一化到 0-1 范围）
-
-        Returns:
-            归一化后的相似度分数，范围 [0, 1]
-        """
-        tag_weights = RECOMMEND_CONFIG.get('tag_weights', {})
-
-        # 分别计算各维度的匹配度
-        mood_match = 0.0
-        energy_match = 0.0
-        genre_match = 0.0
-        region_match = 0.0
-
-        # Mood 维度
-        for tag in ALLOWED_LABELS['mood']:
-            if tag in user_profile.get('mood', {}) and song_tags.get('mood') == tag:
-                mood_match += user_profile['mood'][tag]
-
-        # Energy 维度
-        for tag in ALLOWED_LABELS['energy']:
-            if tag in user_profile.get('energy', {}) and song_tags.get('energy') == tag:
-                energy_match += user_profile['energy'][tag]
-
-        # Genre 维度
-        for tag in ALLOWED_LABELS['genre']:
-            if tag in user_profile.get('genre', {}) and song_tags.get('genre') == tag:
-                genre_match += user_profile['genre'][tag]
-
-        # Region 维度
-        for tag in ALLOWED_LABELS['region']:
-            if tag in user_profile.get('region', {}) and song_tags.get('region') == tag:
-                region_match += user_profile['region'][tag]
-
-        # 加权求和
-        weighted_score = (
-            mood_match * tag_weights.get('mood', 2.0) +
-            energy_match * tag_weights.get('energy', 1.5) +
-            genre_match * tag_weights.get('genre', 1.2) +
-            region_match * tag_weights.get('region', 0.8)
-        )
-
-        # 归一化到 0-1 范围
-        max_possible = (
-            tag_weights.get('mood', 2.0) +
-            tag_weights.get('energy', 1.5) +
-            tag_weights.get('genre', 1.2) +
-            tag_weights.get('region', 0.8)
-        )
-
-        return weighted_score / max_possible if max_possible > 0 else 0.0
-
-    def _apply_diversity(
-        self,
-        candidates: List[Dict[str, Any]],
-        limit: int
-    ) -> List[Dict[str, Any]]:
-        """
-        应用多样性控制
-
-        Args:
-            candidates: 候选歌曲列表
-            limit: 返回数量限制
-
-        Returns:
-            多样化后的歌曲列表
-        """
-        if not candidates:
-            return []
-
-        # 按相似度排序
-        sorted_candidates = sorted(candidates, key=lambda x: x.get('similarity', 0), reverse=True)
-
-        # 使用贪心算法选择多样化的歌曲
-        selected = []
-        artist_count = {}
-        album_count = {}
-
-        max_per_artist = RECOMMEND_CONFIG.get('diversity_max_per_artist', 1)
-        max_per_album = RECOMMEND_CONFIG.get('diversity_max_per_album', 1)
-
-        for song in sorted_candidates:
-            if len(selected) >= limit:
-                break
-
-            artist = song.get('artist')
-            album = song.get('album')
-
-            # 检查艺人约束
-            if artist_count.get(artist, 0) >= max_per_artist:
-                continue
-
-            # 检查专辑约束（只使用专辑名称，不包含艺人）
-            if album and album_count.get(album, 0) >= max_per_album:
-                continue
-
-            selected.append(song)
-            artist_count[artist] = artist_count.get(artist, 0) + 1
-            if album:
-                album_count[album] = album_count.get(album, 0) + 1
-
-        # 如果数量不足，从剩余候选中补充
-        if len(selected) < limit:
-            remaining = [s for s in sorted_candidates if s not in selected]
-            selected.extend(remaining[:limit - len(selected)])
-
-        return selected
+        self.similarity_calculator = SimilarityCalculator()
+        self.diversity_controller = DiversityController()
 
     def recommend(
         self,
@@ -198,12 +81,12 @@ class RecommendService:
                 'region': song.get('region')
             }
 
-            score = self._calculate_similarity(song_tags, user_profile.get('profile', {}))
+            score = self.similarity_calculator.calculate_similarity(
+                song_tags, user_profile.get('profile', {})
+            )
 
             # 添加随机扰动
-            randomness = ALGORITHM_CONFIG.get('randomness', 0.1)
-            if randomness > 0:
-                score *= (1 + random.uniform(-randomness, randomness))
+            score = self.similarity_calculator.apply_randomness(score)
 
             candidates.append({
                 'file_id': song['file_id'],
@@ -220,7 +103,7 @@ class RecommendService:
 
         # 5. 应用多样性控制
         if diversity:
-            recommendations = self._apply_diversity(candidates, limit)
+            recommendations = self.diversity_controller.apply_diversity(candidates, limit)
         else:
             recommendations = sorted(candidates, key=lambda x: x.get('similarity', 0), reverse=True)[:limit]
 

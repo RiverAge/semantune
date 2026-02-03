@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional, List
 
-from config.constants import ALLOWED_LABELS
+from config.constants import get_allowed_labels
 from src.core.database import dbs_context
 from src.core.response import ApiResponse
 from src.core.exceptions import SemantuneException
