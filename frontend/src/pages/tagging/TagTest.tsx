@@ -7,9 +7,9 @@ interface TagTestProps {
 }
 
 export default function TagTest({ onTestSuccess }: TagTestProps) {
-  const [testTitle, setTestTitle] = useState('');
-  const [testArtist, setTestArtist] = useState('');
-  const [testAlbum, setTestAlbum] = useState('');
+  const [testTitle, setTestTitle] = useState('夜曲');
+  const [testArtist, setTestArtist] = useState('周杰伦');
+  const [testAlbum, setTestAlbum] = useState('十一月的肖邦');
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
   const [testError, setTestError] = useState<string | null>(null);

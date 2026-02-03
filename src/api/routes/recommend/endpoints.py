@@ -2,7 +2,11 @@
 推荐接口路由端点
 """
 import logging
+import csv
+import io
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 
 from src.core.database import nav_db_context, sem_db_context, dbs_context
 from src.core.response import ApiResponse
@@ -261,4 +265,191 @@ async def get_user_profile(username: str):
 
     except Exception as e:
         logger.error(f"获取用户画像失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/export")
+async def export_all(
+    username: str = Query(..., min_length=1, max_length=100, description="用户名"),
+    limit: int = Query(default=30, ge=1, le=100, description="推荐数量，范围1-100")
+):
+    """
+    导出推荐歌曲和用户画像数据为Markdown文件
+    """
+    try:
+        with dbs_context() as (nav_conn, sem_conn):
+            user_repo = UserRepository(nav_conn)
+            users = user_repo.get_all_users()
+
+            # 查找用户
+            user_id = None
+            for user in users:
+                if user['name'] == username:
+                    user_id = user['id']
+                    break
+
+            if not user_id:
+                raise HTTPException(status_code=404, detail=f"用户 {username} 不存在")
+
+            # 获取推荐
+            recommend_service = ServiceFactory.create_recommend_service(nav_conn, sem_conn)
+            recommendations = recommend_service.recommend(user_id=user_id, limit=limit)
+
+            # 获取播放历史
+            play_history = user_repo.get_play_history(user_id)
+            
+            # 获取歌单歌曲
+            playlist_songs = user_repo.get_playlist_songs(user_id)
+            
+            # 获取歌单列表
+            playlists = nav_conn.execute("""
+                SELECT id, name, updated_at
+                FROM playlist
+                WHERE owner_id = ?
+                ORDER BY name
+            """, (user_id,)).fetchall()
+
+            # 获取语义标签
+            from src.repositories.semantic_repository import SemanticRepository
+            sem_repo = SemanticRepository(sem_conn)
+
+            # 创建Markdown内容
+            lines = []
+            
+            # 标题
+            lines.append(f"# 个性化推荐报告")
+            lines.append("")
+            lines.append(f"**用户名**: {username}")
+            lines.append(f"**导出时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            lines.append("")
+
+            # 统计信息
+            total_plays = sum(play_history.get(song_id, {}).get('play_count', 0) for song_id in play_history)
+            starred_count = sum(1 for song_id, data in play_history.items() if data.get('starred', False))
+            
+            lines.append("## 📊 用户画像统计")
+            lines.append("")
+            lines.append(f"- **总播放次数**: {total_plays}")
+            lines.append(f"- **听过歌曲数**: {len(play_history)}")
+            lines.append(f"- **收藏歌曲数**: {starred_count}")
+            lines.append(f"- **歌单数量**: {len(playlists)}")
+            lines.append("")
+
+            # 播放历史
+            lines.append("## 🎵 播放历史")
+            lines.append("")
+            lines.append("| 序号 | 歌曲ID | 标题 | 歌手 | 专辑 | 播放次数 | 收藏 | 最后播放时间 | 情绪 | 能量 | 流派 | 地区 |")
+            lines.append("|------|--------|------|------|------|----------|------|--------------|------|------|------|------|")
+            
+            for idx, (song_id, play_data) in enumerate(sorted(play_history.items(), key=lambda x: x[1].get('play_count', 0), reverse=True), 1):
+                # 获取歌曲信息
+                song_info = nav_conn.execute("""
+                    SELECT title, artist, album
+                    FROM media_file
+                    WHERE id = ?
+                """, (song_id,)).fetchone()
+                
+                if song_info:
+                    title, artist, album = song_info
+                else:
+                    title, artist, album = '', '', ''
+                
+                # 获取语义标签
+                tags = sem_repo.get_song_tags(song_id)
+                
+                play_date_str = ''
+                if play_data.get('play_date'):
+                    try:
+                        play_date_str = datetime.fromtimestamp(play_data.get('play_date', 0)).strftime('%Y-%m-%d %H:%M:%S')
+                    except:
+                        pass
+                
+                lines.append(f"| {idx} | {song_id} | {title} | {artist} | {album} | {play_data.get('play_count', 0)} | {'✓' if play_data.get('starred', False) else ''} | {play_date_str} | {tags.get('mood', '')} | {tags.get('energy', '')} | {tags.get('genre', '')} | {tags.get('region', '')} |")
+            
+            lines.append("")
+
+            # 收藏歌曲
+            starred_songs = [song_id for song_id, data in play_history.items() if data.get('starred', False)]
+            if starred_songs:
+                lines.append("## ⭐ 收藏歌曲")
+                lines.append("")
+                lines.append("| 序号 | 歌曲ID | 标题 | 歌手 | 专辑 | 情绪 | 能量 | 流派 | 地区 |")
+                lines.append("|------|--------|------|------|------|------|------|------|------|")
+                
+                for idx, song_id in enumerate(starred_songs, 1):
+                    song_info = nav_conn.execute("""
+                        SELECT title, artist, album
+                        FROM media_file
+                        WHERE id = ?
+                    """, (song_id,)).fetchone()
+                    
+                    if song_info:
+                        title, artist, album = song_info
+                    else:
+                        title, artist, album = '', '', ''
+                    
+                    tags = sem_repo.get_song_tags(song_id)
+                    
+                    lines.append(f"| {idx} | {song_id} | {title} | {artist} | {album} | {tags.get('mood', '')} | {tags.get('energy', '')} | {tags.get('genre', '')} | {tags.get('region', '')} |")
+                
+                lines.append("")
+
+            # 歌单信息
+            if playlists:
+                lines.append("## 📋 歌单信息")
+                lines.append("")
+                
+                for playlist_id, playlist_name, updated_at in playlists:
+                    lines.append(f"### {playlist_name}")
+                    lines.append("")
+                    lines.append("| 序号 | 歌曲ID | 标题 | 歌手 | 专辑 | 情绪 | 能量 | 流派 | 地区 |")
+                    lines.append("|------|--------|------|------|------|------|------|------|------|")
+                    
+                    songs = nav_conn.execute("""
+                        SELECT pt.media_file_id, m.title, m.artist, m.album
+                        FROM playlist_tracks pt
+                        JOIN media_file m ON pt.media_file_id = m.id
+                        WHERE pt.playlist_id = ?
+                    """, (playlist_id,)).fetchall()
+                    
+                    for idx, (song_id, title, artist, album) in enumerate(songs, 1):
+                        tags = sem_repo.get_song_tags(song_id)
+                        lines.append(f"| {idx} | {song_id} | {title} | {artist} | {album} | {tags.get('mood', '')} | {tags.get('energy', '')} | {tags.get('genre', '')} | {tags.get('region', '')} |")
+                    
+                    lines.append("")
+
+            # 推荐歌曲
+            lines.append("## ✨ 推荐歌曲")
+            lines.append("")
+            lines.append(f"基于您的音乐偏好，为您推荐以下 {len(recommendations)} 首歌曲：")
+            lines.append("")
+            lines.append("| 序号 | 歌曲ID | 标题 | 歌手 | 专辑 | 年份 | 情绪 | 能量 | 流派 | 地区 | 相似度 | 推荐理由 |")
+            lines.append("|------|--------|------|------|------|------|------|------|------|------|--------|----------|")
+
+            for idx, rec in enumerate(recommendations, 1):
+                lines.append(f"| {idx} | {rec.get('file_id', '')} | {rec.get('title', '')} | {rec.get('artist', '')} | {rec.get('album', '')} | {rec.get('year', '')} | {rec.get('mood', '')} | {rec.get('energy', '')} | {rec.get('genre', '')} | {rec.get('region', '')} | {rec.get('similarity', 0):.2%} | {rec.get('reason', '')} |")
+            
+            lines.append("")
+            lines.append("---")
+            lines.append("")
+            lines.append("*本报告由 Semantune 自动生成*")
+
+            # 生成文件名
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"recommendation_report_{username}_{timestamp}.md"
+
+            # 返回Markdown文件
+            content = '\n'.join(lines)
+            return StreamingResponse(
+                io.BytesIO(content.encode('utf-8')),
+                media_type='text/markdown; charset=utf-8',
+                headers={
+                    'Content-Disposition': f'attachment; filename="{filename}"'
+                }
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"导出失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

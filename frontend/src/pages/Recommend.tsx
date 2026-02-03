@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Music, User, Sparkles } from 'lucide-react';
+import { Music, User, Sparkles, Download } from 'lucide-react';
 import { recommendApi } from '../api/client';
 import type { Recommendation, UserStats } from '../types';
 
@@ -10,6 +10,22 @@ export default function Recommend() {
   const [userProfile, setUserProfile] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportReport = async () => {
+    if (!username.trim()) {
+      setError('请先获取推荐');
+      return;
+    }
+    try {
+      setExporting(true);
+      await recommendApi.exportReport(username, limit);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '导出报告失败');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const handleGetRecommendations = async () => {
     if (!username.trim()) {
@@ -167,12 +183,22 @@ export default function Recommend() {
       {/* 推荐列表 */}
       {recommendations.length > 0 && (
         <div className="card">
-          <div className="flex items-center mb-4">
-            <Sparkles className="h-5 w-5 text-primary-600 mr-2" />
-            <h2 className="text-lg font-semibold">推荐歌曲</h2>
-            <span className="ml-2 text-sm text-gray-500">
-              ({recommendations.length} 首)
-            </span>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center">
+              <Sparkles className="h-5 w-5 text-primary-600 mr-2" />
+              <h2 className="text-lg font-semibold">推荐歌曲</h2>
+              <span className="ml-2 text-sm text-gray-500">
+                ({recommendations.length} 首)
+              </span>
+            </div>
+            <button
+              onClick={handleExportReport}
+              disabled={exporting}
+              className="btn btn-secondary text-sm"
+            >
+              <Download className="h-4 w-4 mr-1" />
+              {exporting ? '导出中...' : '导出报告'}
+            </button>
           </div>
           <div className="space-y-3">
             {recommendations.map((song, index) => (

@@ -125,7 +125,7 @@ ALLOWED LABELS:
 4. No conversational filler. Just the JSON object.
 
 Example Output:
-{
+{{
   "mood": "Epic",
   "energy": "High",
   "scene": "None",
@@ -133,7 +133,7 @@ Example Output:
   "subculture": "None",
   "genre": "Rock",
   "confidence": 0.95
-}
+}}
 <|eot_id|><|start_header_id|>user<|end_header_id|>
 Classify:
 Title: {title}

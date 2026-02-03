@@ -1,0 +1,115 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "启动 API 服务 (DEBUG)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "src.api.app:app",
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "8080",
+                "--reload"
+            ],
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "justMyCode": false
+        },
+        {
+            "name": "启动 API 服务 (DEBUG - 详细日志)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "src.api.app:app",
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "8080",
+                "--reload",
+                "--log-level",
+                "debug"
+            ],
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "justMyCode": false
+        },
+        {
+            "name": "生成语义标签",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": [
+                "tag"
+            ],
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "justMyCode": false
+        },
+        {
+            "name": "生成推荐",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": [
+                "recommend"
+            ],
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "justMyCode": false
+        },
+        {
+            "name": "查询歌曲",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": [
+                "query"
+            ],
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "justMyCode": false
+        },
+        {
+            "name": "分析数据",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": [
+                "analyze"
+            ],
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "justMyCode": false
+        },
+        {
+            "name": "预览标签生成",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "main",
+            "args": [
+                "tag-preview"
+            ],
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "justMyCode": false
+        }
+    ]
+}

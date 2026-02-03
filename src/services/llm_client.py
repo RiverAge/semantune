@@ -2,6 +2,7 @@
 LLM API 客户端模块 - 封装 LLM API 调用逻辑
 """
 
+import logging
 import re
 import json
 import time
@@ -10,6 +11,9 @@ from typing import Optional, Dict, Any, Tuple
 
 from config.settings import get_api_key, BASE_URL, MODEL
 from config.constants import get_prompt_template, get_tagging_api_config
+from src.utils.logger import setup_logger
+
+logger = setup_logger("llm_client", level=logging.DEBUG)
 
 
 class LLMClient:
@@ -71,13 +75,30 @@ class LLMClient:
         retry_delay = api_config.get("retry_delay", 1)
         retry_backoff = api_config.get("retry_backoff", 2)
 
+        # Debug: 输出发送给 LLM 的请求
+        logger.debug(f"=== 发送给 LLM 的请求 ===")
+        logger.debug(f"歌曲信息: {artist} - {title} ({album})")
+        logger.debug(f"API URL: {BASE_URL}")
+        logger.debug(f"请求头: {headers}")
+        logger.debug(f"请求体: {json.dumps(payload, ensure_ascii=False, indent=2)}")
+
         for attempt in range(max_retries):
             try:
                 r = requests.post(BASE_URL, headers=headers, json=payload, timeout=api_config.get("timeout", 60))
                 r.raise_for_status()
                 content = r.json()['choices'][0]['message']['content']
-                return self._safe_extract_json(content), content
+                
+                # Debug: 输出 LLM 的回复
+                logger.debug(f"=== LLM 的回复 ===")
+                logger.debug(f"状态码: {r.status_code}")
+                logger.debug(f"原始响应内容: {content}")
+                
+                parsed_json = self._safe_extract_json(content)
+                logger.debug(f"解析后的 JSON: {json.dumps(parsed_json, ensure_ascii=False, indent=2) if parsed_json else '解析失败'}")
+                
+                return parsed_json, content
             except requests.exceptions.RequestException as e:
+                logger.debug(f"请求失败 (尝试 {attempt + 1}/{max_retries}): {e}")
                 if attempt < max_retries - 1:
                     delay = retry_delay * (retry_backoff ** attempt)
                     time.sleep(delay)

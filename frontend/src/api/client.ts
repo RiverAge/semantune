@@ -72,6 +72,38 @@ export const recommendApi = {
   getUserProfile: async (username: string): Promise<ApiResponse<UserStats>> => {
     return await api.get<ApiResponse<UserStats>>(`/recommend/profile/${username}`) as any;
   },
+
+  // 导出推荐报告（包含推荐歌曲和用户画像）
+  exportReport: async (username: string, limit: number = 30): Promise<void> => {
+    // 使用原始 axios 而不是 api 实例，以获取完整的 response 对象（包括 headers）
+    const axios = (await import('axios')).default;
+    const response = await axios.get('/api/v1/recommend/export', {
+      params: { username, limit },
+      responseType: 'blob'
+    });
+    
+    // 创建下载链接
+    const blob = new Blob([response.data], { type: 'text/markdown;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    
+    // 从响应头获取文件名
+    const contentDisposition = response.headers?.['content-disposition'];
+    let filename = `recommendation_report_${username}.md`;
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+      if (filenameMatch) {
+        filename = filenameMatch[1];
+      }
+    }
+    
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  },
 };
 
 // 查询相关 API

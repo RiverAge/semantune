@@ -3,6 +3,7 @@
 """
 from fastapi import APIRouter
 
+from src.core.response import ApiResponse
 from src.api.routes.config_api import (
     get_api_config,
     update_api_config,
@@ -29,7 +30,7 @@ router = APIRouter()
 
 # ==================== API 配置接口 ====================
 
-@router.get("/api", response_model=ApiConfigResponse)
+@router.get("/api", response_model=ApiResponse[ApiConfigResponse])
 async def get_api_config_route():
     """获取当前 API 配置"""
     return await get_api_config()
