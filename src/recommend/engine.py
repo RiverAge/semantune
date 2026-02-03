@@ -12,7 +12,7 @@ from typing import Optional, Dict, Any, List, Tuple
 
 from config.settings import RECOMMEND_CONFIG, WEIGHT_CONFIG, ALGORITHM_CONFIG
 from config.constants import ALLOWED_LABELS
-from src.core.database import connect_nav_db, connect_sem_db
+from src.core.database import dbs_context
 from src.utils.common import setup_windows_encoding
 from src.utils.user import (
     get_user_id,
@@ -27,8 +27,8 @@ from src.utils.logger import setup_logger
 # 设置 Windows 控制台编码
 setup_windows_encoding()
 
-# 设置日志
-logger = setup_logger('recommend', 'recommend.log', level=logging.INFO)
+# 设置日志（使用统一的日志配置）
+logger = setup_logger('recommend', level=logging.INFO)
 
 
 def build_user_profile(nav_conn, sem_conn, user_id: str, verbose: bool = True) -> Dict[str, Any]:
@@ -353,144 +353,138 @@ def recommend(user_id: Optional[str] = None, limit: int = 30, filter_recent: boo
         5. 应用多样性约束
         6. 混合利用型和探索型推荐
     """
-    # 1. 连接数据库
-    nav_conn = connect_nav_db()
-    sem_conn = connect_sem_db()
+    with dbs_context() as (nav_conn, sem_conn):
+        # 2. 获取用户ID
+        if user_id is None:
+            user_id = get_user_id(nav_conn)
 
-    # 2. 获取用户ID
-    if user_id is None:
-        user_id = get_user_id(nav_conn)
+        # 3. 即时构建用户画像
+        profile_data = build_user_profile(nav_conn, sem_conn, user_id, verbose=True)
+        user_profile = profile_data['profile']
 
-    # 3. 即时构建用户画像
-    profile_data = build_user_profile(nav_conn, sem_conn, user_id, verbose=True)
-    user_profile = profile_data['profile']
+        # 将用户画像转为向量（使用归一化后的权重）
+        user_vector = {}
+        for category, tags in user_profile.items():
+            for tag, weight in tags.items():
+                user_vector[tag] = weight / 100.0  # 转回 0-1 范围
 
-    # 将用户画像转为向量（使用归一化后的权重）
-    user_vector = {}
-    for category, tags in user_profile.items():
-        for tag, weight in tags.items():
-            user_vector[tag] = weight / 100.0  # 转回 0-1 范围
+        print(f"   用户ID: {user_id}")
+        print(f"   画像维度: {len(user_vector)} 个标签")
 
-    print(f"   用户ID: {user_id}")
-    print(f"   画像维度: {len(user_vector)} 个标签")
+        # 4. 获取已听过的歌曲（用于过滤）
+        print("2. 获取用户历史...")
+        user_songs = get_user_songs(nav_conn, user_id)
+        recent_songs = get_recent_songs(nav_conn, user_id, RECOMMEND_CONFIG['recent_filter_count']) if filter_recent else set()
 
-    # 4. 获取已听过的歌曲（用于过滤）
-    print("2. 获取用户历史...")
-    user_songs = get_user_songs(nav_conn, user_id)
-    recent_songs = get_recent_songs(nav_conn, user_id, RECOMMEND_CONFIG['recent_filter_count']) if filter_recent else set()
+        print(f"   已听过: {len(user_songs)} 首")
+        print(f"   最近听过: {len(recent_songs)} 首")
 
-    print(f"   已听过: {len(user_songs)} 首")
-    print(f"   最近听过: {len(recent_songs)} 首")
+        # 5. 构建歌曲向量
+        print("3. 构建歌曲向量库...")
+        song_vectors = build_song_vectors(sem_conn)
+        print(f"   歌曲总数: {len(song_vectors)} 首")
 
-    # 5. 构建歌曲向量
-    print("3. 构建歌曲向量库...")
-    song_vectors = build_song_vectors(sem_conn)
-    print(f"   歌曲总数: {len(song_vectors)} 首")
+        # 6. 计算相似度（使用加权相似度）
+        print("4. 计算加权相似度...")
+        scores = []
+        tag_weights = RECOMMEND_CONFIG['tag_weights']
 
-    # 6. 计算相似度（使用加权相似度）
-    print("4. 计算加权相似度...")
-    scores = []
-    tag_weights = RECOMMEND_CONFIG['tag_weights']
-
-    for song_id, song_data in song_vectors.items():
-        # 过滤已听过的歌
-        if song_id in user_songs:
-            continue
-
-        # 过滤最近听过的歌
-        if filter_recent and song_id in recent_songs:
-            continue
-
-        # 计算加权相似度
-        similarity = weighted_similarity(user_vector, song_data['vector'], tag_weights)
-
-        if similarity > 0:
-            scores.append({
-                'song_id': song_id,
-                'similarity': similarity,
-                'title': song_data['title'],
-                'artist': song_data['artist'],
-                'album': song_data['album'],
-                'mood': song_data['mood'],
-                'energy': song_data['energy'],
-                'genre': song_data['genre'],
-                'region': song_data['region']
-            })
-
-    # 6. 排序
-    scores.sort(key=lambda x: x['similarity'], reverse=True)
-
-    print(f"   候选歌曲: {len(scores)} 首")
-    if scores:
-        print(f"   相似度范围: {scores[0]['similarity']:.3f} ~ {scores[-1]['similarity']:.3f}")
-
-    # 7. 分离利用型和探索型推荐
-    if exploration and len(scores) > limit:
-        exploration_count = int(limit * RECOMMEND_CONFIG['exploration_ratio'])
-        exploitation_count = limit - exploration_count
-
-        print(f"5. 混合推荐策略...")
-        print(f"   利用型（高相似度）: {exploitation_count} 首")
-        print(f"   探索型（多样性）: {exploration_count} 首")
-
-        # 利用型：取高相似度的歌
-        exploitation_pool = scores[:exploitation_count * ALGORITHM_CONFIG["exploitation_pool_multiplier"]]
-
-        # 探索型：从中等相似度中随机选择
-        mid_start = int(len(scores) * ALGORITHM_CONFIG["exploration_pool_start"])
-        mid_end = int(len(scores) * ALGORITHM_CONFIG["exploration_pool_end"])
-        exploration_pool = scores[mid_start:mid_end]
-
-        random.shuffle(exploration_pool)
-
-        # 合并
-        combined_pool = exploitation_pool + exploration_pool[:exploration_count * 2]
-    else:
-        logger.info(f"5. 应用多样性优化...")
-        combined_pool = scores
-
-    # 8. 严格的多样性约束
-    if diversity:
-        diversified = []
-        artist_count = defaultdict(int)
-        album_count = defaultdict(int)
-
-        max_per_artist = RECOMMEND_CONFIG['diversity_max_per_artist']
-        max_per_album = RECOMMEND_CONFIG['diversity_max_per_album']
-
-        for song in combined_pool:
-            artist = song['artist']
-            album = song['album']
-            album_key = f"{artist}::{album}"  # 艺人+专辑组合键
-
-            # 检查艺人约束
-            if artist_count[artist] >= max_per_artist:
+        for song_id, song_data in song_vectors.items():
+            # 过滤已听过的歌
+            if song_id in user_songs:
                 continue
 
-            # 检查专辑约束
-            if album_count[album_key] >= max_per_album:
+            # 过滤最近听过的歌
+            if filter_recent and song_id in recent_songs:
                 continue
 
-            diversified.append(song)
-            artist_count[artist] += 1
-            album_count[album_key] += 1
+            # 计算加权相似度
+            similarity = weighted_similarity(user_vector, song_data['vector'], tag_weights)
 
-            if len(diversified) >= limit:
-                break
+            if similarity > 0:
+                scores.append({
+                    'song_id': song_id,
+                    'similarity': similarity,
+                    'title': song_data['title'],
+                    'artist': song_data['artist'],
+                    'album': song_data['album'],
+                    'mood': song_data['mood'],
+                    'energy': song_data['energy'],
+                    'genre': song_data['genre'],
+                    'region': song_data['region']
+                })
 
-        # 按相似度重新排序
-        recommendations = sorted(diversified, key=lambda x: x['similarity'], reverse=True)
+        # 6. 排序
+        scores.sort(key=lambda x: x['similarity'], reverse=True)
 
-        logger.info(f"   最终推荐: {len(recommendations)} 首")
-        logger.info(f"   独立艺人数: {len(artist_count)}")
-        logger.info(f"   独立专辑数: {len(album_count)}")
-    else:
-        recommendations = combined_pool[:limit]
+        print(f"   候选歌曲: {len(scores)} 首")
+        if scores:
+            print(f"   相似度范围: {scores[0]['similarity']:.3f} ~ {scores[-1]['similarity']:.3f}")
 
-    nav_conn.close()
-    sem_conn.close()
+        # 7. 分离利用型和探索型推荐
+        if exploration and len(scores) > limit:
+            exploration_count = int(limit * RECOMMEND_CONFIG['exploration_ratio'])
+            exploitation_count = limit - exploration_count
 
-    return recommendations
+            print(f"5. 混合推荐策略...")
+            print(f"   利用型（高相似度）: {exploitation_count} 首")
+            print(f"   探索型（多样性）: {exploration_count} 首")
+
+            # 利用型：取高相似度的歌
+            exploitation_pool = scores[:exploitation_count * ALGORITHM_CONFIG["exploitation_pool_multiplier"]]
+
+            # 探索型：从中等相似度中随机选择
+            mid_start = int(len(scores) * ALGORITHM_CONFIG["exploration_pool_start"])
+            mid_end = int(len(scores) * ALGORITHM_CONFIG["exploration_pool_end"])
+            exploration_pool = scores[mid_start:mid_end]
+
+            random.shuffle(exploration_pool)
+
+            # 合并
+            combined_pool = exploitation_pool + exploration_pool[:exploration_count * 2]
+        else:
+            logger.info(f"5. 应用多样性优化...")
+            combined_pool = scores
+
+        # 8. 严格的多样性约束
+        if diversity:
+            diversified = []
+            artist_count = defaultdict(int)
+            album_count = defaultdict(int)
+
+            max_per_artist = RECOMMEND_CONFIG['diversity_max_per_artist']
+            max_per_album = RECOMMEND_CONFIG['diversity_max_per_album']
+
+            for song in combined_pool:
+                artist = song['artist']
+                album = song['album']
+                album_key = f"{artist}::{album}"  # 艺人+专辑组合键
+
+                # 检查艺人约束
+                if artist_count[artist] >= max_per_artist:
+                    continue
+
+                # 检查专辑约束
+                if album_count[album_key] >= max_per_album:
+                    continue
+
+                diversified.append(song)
+                artist_count[artist] += 1
+                album_count[album_key] += 1
+
+                if len(diversified) >= limit:
+                    break
+
+            # 按相似度重新排序
+            recommendations = sorted(diversified, key=lambda x: x['similarity'], reverse=True)
+
+            logger.info(f"   最终推荐: {len(recommendations)} 首")
+            logger.info(f"   独立艺人数: {len(artist_count)}")
+            logger.info(f"   独立专辑数: {len(album_count)}")
+        else:
+            recommendations = combined_pool[:limit]
+
+        return recommendations
 
 
 def print_recommendations(recommendations: List[Dict[str, Any]]) -> None:

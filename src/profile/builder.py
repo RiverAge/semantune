@@ -10,7 +10,7 @@ from typing import Dict, Any, Optional
 
 from config.settings import WEIGHT_CONFIG
 from config.constants import ALLOWED_LABELS
-from src.core.database import connect_nav_db, connect_sem_db
+from src.core.database import dbs_context
 from src.utils.common import setup_windows_encoding
 from src.utils.user import (
     get_user_id,
@@ -25,16 +25,14 @@ from src.utils.logger import setup_logger
 # 设置 Windows 控制台编码
 setup_windows_encoding()
 
-# 设置日志
-logger = setup_logger('profile', 'profile.log', level=logging.INFO)
+# 设置日志（使用统一的日志配置）
+logger = setup_logger('profile', level=logging.INFO)
 
 
 def build_user_profile(user_id: str) -> Dict[str, Any]:
     """构建用户画像"""
-    nav_conn = connect_nav_db()
-    sem_conn = connect_sem_db()
-
-    logger.info(f"正在构建用户画像...")
+    with dbs_context() as (nav_conn, sem_conn):
+        logger.info(f"正在构建用户画像...")
     logger.info("=" * 60)
 
     # 1. 获取播放历史
@@ -134,10 +132,7 @@ def build_user_profile(user_id: str) -> Dict[str, Any]:
             reverse=True
         ))
 
-    nav_conn.close()
-    sem_conn.close()
-
-    return {
+        return {
         'user_id': user_id,
         'profile': profile,
         'stats': stats,

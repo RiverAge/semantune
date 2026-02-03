@@ -12,6 +12,9 @@ load_dotenv()
 # 项目根目录
 BASE_DIR = Path(__file__).parent.parent
 
+# 项目版本
+VERSION = "1.1.0"
+
 # 数据库路径
 NAV_DB = str(BASE_DIR / "data" / "navidrome.db")
 SEM_DB = str(BASE_DIR / "data" / "semantic.db")
@@ -19,6 +22,19 @@ SEM_DB = str(BASE_DIR / "data" / "semantic.db")
 # 日志目录
 LOG_DIR = str(BASE_DIR / "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
+
+# 日志文件名配置
+LOG_FILES = {
+    "api": "api.log",
+    "tagging": "tagging.log",
+    "tagging_preview": "tagging_preview.log",
+    "recommend": "recommend.log",
+    "query": "query.log",
+    "profile": "profile.log",
+    "export": "export.log",
+    "analyze": "analyze.log",
+    "main": "main.log",
+}
 
 # 导出目录
 EXPORT_DIR = str(BASE_DIR / "exports")

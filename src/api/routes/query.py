@@ -10,7 +10,7 @@ from src.query.search import query_by_mood, query_by_tags, query_scene_preset, f
 from src.core.database import sem_db_context
 from src.utils.logger import setup_logger
 
-logger = setup_logger("api_query", "api.log", level=logging.INFO)
+logger = setup_logger("api", level=logging.INFO)
 
 router = APIRouter()
 

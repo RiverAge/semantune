@@ -7,10 +7,10 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 
 from src.utils.analyze import analyze_distribution, analyze_combinations, analyze_by_region, analyze_quality
-from src.core.database import sem_db_context
+from src.core.database import sem_db_context, nav_db_context, dbs_context
 from src.utils.logger import setup_logger
 
-logger = setup_logger("api_analyze", "api.log", level=logging.INFO)
+logger = setup_logger("api", level=logging.INFO)
 
 router = APIRouter()
 
@@ -318,22 +318,17 @@ async def get_users():
     获取所有用户列表（前端专用）
     """
     try:
-        from src.core.database import connect_nav_db
-        
-        nav_conn = connect_nav_db()
-        
-        # 获取所有用户
-        users = nav_conn.execute("SELECT id, user_name FROM user ORDER BY user_name").fetchall()
-        user_list = [row[1] for row in users if row[1]]
-        
-        nav_conn.close()
-        
-        logger.info(f"获取用户列表: {len(user_list)} 个用户")
-        
-        return {
-            "success": True,
-            "data": user_list
-        }
+        with nav_db_context() as nav_conn:
+            # 获取所有用户
+            users = nav_conn.execute("SELECT id, user_name FROM user ORDER BY user_name").fetchall()
+            user_list = [row[1] for row in users if row[1]]
+            
+            logger.info(f"获取用户列表: {len(user_list)} 个用户")
+            
+            return {
+                "success": True,
+                "data": user_list
+            }
         
     except Exception as e:
         logger.error(f"获取用户列表失败: {e}")
@@ -346,108 +341,101 @@ async def get_user_stats(username: str):
     获取用户统计数据（前端专用）
     """
     try:
-        from src.core.database import connect_nav_db, connect_sem_db
-        
-        nav_conn = connect_nav_db()
-        sem_conn = connect_sem_db()
-        
-        # 获取用户 ID
-        user_id = nav_conn.execute(
-            "SELECT id FROM user WHERE user_name = ?",
-            (username,)
-        ).fetchone()
-        
-        if not user_id:
-            raise HTTPException(status_code=404, detail=f"用户 {username} 不存在")
-        
-        user_id = user_id[0]
-        
-        # 总播放次数
-        total_plays = nav_conn.execute(
-            "SELECT COUNT(*) FROM annotation WHERE user_id = ? AND item_type = 'media_file'",
-            (user_id,)
-        ).fetchone()[0]
-        
-        # 听过的歌曲数
-        unique_songs = nav_conn.execute(
-            "SELECT COUNT(DISTINCT item_id) FROM annotation WHERE user_id = ? AND item_type = 'media_file'",
-            (user_id,)
-        ).fetchone()[0]
-        
-        # 收藏的歌曲数
-        starred_count = nav_conn.execute(
-            "SELECT COUNT(*) FROM annotation WHERE user_id = ? AND item_type = 'media_file' AND starred = 1",
-            (user_id,)
-        ).fetchone()[0]
-        
-        # 歌单数量
-        playlist_count = nav_conn.execute(
-            "SELECT COUNT(*) FROM playlist WHERE owner_id = ?",
-            (user_id,)
-        ).fetchone()[0]
-        
-        # 获取用户听过的歌曲 ID
-        played_songs = nav_conn.execute(
-            "SELECT DISTINCT item_id FROM annotation WHERE user_id = ? AND item_type = 'media_file'",
-            (user_id,)
-        ).fetchall()
-        played_song_ids = [row[0] for row in played_songs]
-        
-        # 获取这些歌曲的标签
-        if played_song_ids:
-            placeholders = ','.join(['?' for _ in played_song_ids])
-            tagged_songs = sem_conn.execute(
-                f"SELECT artist, mood, energy, genre FROM music_semantic WHERE file_id IN ({placeholders})",
-                played_song_ids
+        with dbs_context() as (nav_conn, sem_conn):
+            # 获取用户 ID
+            user_id = nav_conn.execute(
+                "SELECT id FROM user WHERE user_name = ?",
+                (username,)
+            ).fetchone()
+            
+            if not user_id:
+                raise HTTPException(status_code=404, detail=f"用户 {username} 不存在")
+            
+            user_id = user_id[0]
+            
+            # 总播放次数
+            total_plays = nav_conn.execute(
+                "SELECT COUNT(*) FROM annotation WHERE user_id = ? AND item_type = 'media_file'",
+                (user_id,)
+            ).fetchone()[0]
+            
+            # 听过的歌曲数
+            unique_songs = nav_conn.execute(
+                "SELECT COUNT(DISTINCT item_id) FROM annotation WHERE user_id = ? AND item_type = 'media_file'",
+                (user_id,)
+            ).fetchone()[0]
+            
+            # 收藏的歌曲数
+            starred_count = nav_conn.execute(
+                "SELECT COUNT(*) FROM annotation WHERE user_id = ? AND item_type = 'media_file' AND starred = 1",
+                (user_id,)
+            ).fetchone()[0]
+            
+            # 歌单数量
+            playlist_count = nav_conn.execute(
+                "SELECT COUNT(*) FROM playlist WHERE owner_id = ?",
+                (user_id,)
+            ).fetchone()[0]
+            
+            # 获取用户听过的歌曲 ID
+            played_songs = nav_conn.execute(
+                "SELECT DISTINCT item_id FROM annotation WHERE user_id = ? AND item_type = 'media_file'",
+                (user_id,)
             ).fetchall()
+            played_song_ids = [row[0] for row in played_songs]
             
-            # 统计喜欢的歌手
-            artist_counts = {}
-            mood_counts = {}
-            energy_counts = {}
-            genre_counts = {}
+            # 获取这些歌曲的标签
+            if played_song_ids:
+                placeholders = ','.join(['?' for _ in played_song_ids])
+                tagged_songs = sem_conn.execute(
+                    f"SELECT artist, mood, energy, genre FROM music_semantic WHERE file_id IN ({placeholders})",
+                    played_song_ids
+                ).fetchall()
+                
+                # 统计喜欢的歌手
+                artist_counts = {}
+                mood_counts = {}
+                energy_counts = {}
+                genre_counts = {}
+                
+                for row in tagged_songs:
+                    artist, mood, energy, genre = row
+                    if artist and artist != 'None':
+                        artist_counts[artist] = artist_counts.get(artist, 0) + 1
+                    if mood and mood != 'None':
+                        mood_counts[mood] = mood_counts.get(mood, 0) + 1
+                    if energy and energy != 'None':
+                        energy_counts[energy] = energy_counts.get(energy, 0) + 1
+                    if genre and genre != 'None':
+                        genre_counts[genre] = genre_counts.get(genre, 0) + 1
+                
+                # 排序并取前 10
+                top_artists = sorted(artist_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+                top_moods = sorted(mood_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+                top_energies = sorted(energy_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+                top_genres = sorted(genre_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+            else:
+                top_artists = []
+                top_moods = []
+                top_energies = []
+                top_genres = []
             
-            for row in tagged_songs:
-                artist, mood, energy, genre = row
-                if artist and artist != 'None':
-                    artist_counts[artist] = artist_counts.get(artist, 0) + 1
-                if mood and mood != 'None':
-                    mood_counts[mood] = mood_counts.get(mood, 0) + 1
-                if energy and energy != 'None':
-                    energy_counts[energy] = energy_counts.get(energy, 0) + 1
-                if genre and genre != 'None':
-                    genre_counts[genre] = genre_counts.get(genre, 0) + 1
+            logger.info(f"获取用户统计数据: {username}")
             
-            # 排序并取前 10
-            top_artists = sorted(artist_counts.items(), key=lambda x: x[1], reverse=True)[:10]
-            top_moods = sorted(mood_counts.items(), key=lambda x: x[1], reverse=True)[:10]
-            top_energies = sorted(energy_counts.items(), key=lambda x: x[1], reverse=True)[:10]
-            top_genres = sorted(genre_counts.items(), key=lambda x: x[1], reverse=True)[:10]
-        else:
-            top_artists = []
-            top_moods = []
-            top_energies = []
-            top_genres = []
-        
-        nav_conn.close()
-        sem_conn.close()
-        
-        logger.info(f"获取用户统计数据: {username}")
-        
-        return {
-            "success": True,
-            "data": {
-                "username": username,
-                "total_plays": total_plays,
-                "unique_songs": unique_songs,
-                "starred_count": starred_count,
-                "playlist_count": playlist_count,
-                "top_artists": [{"artist": a, "count": c} for a, c in top_artists],
-                "top_moods": [{"mood": m, "count": c} for m, c in top_moods],
-                "top_energies": [{"energy": e, "count": c} for e, c in top_energies],
-                "top_genres": [{"genre": g, "count": c} for g, c in top_genres]
+            return {
+                "success": True,
+                "data": {
+                    "username": username,
+                    "total_plays": total_plays,
+                    "unique_songs": unique_songs,
+                    "starred_count": starred_count,
+                    "playlist_count": playlist_count,
+                    "top_artists": [{"artist": a, "count": c} for a, c in top_artists],
+                    "top_moods": [{"mood": m, "count": c} for m, c in top_moods],
+                    "top_energies": [{"energy": e, "count": c} for e, c in top_energies],
+                    "top_genres": [{"genre": g, "count": c} for g, c in top_genres]
+                }
             }
-        }
         
     except Exception as e:
         logger.error(f"获取用户统计数据失败: {e}")

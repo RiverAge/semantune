@@ -3,17 +3,17 @@
 """
 import logging
 import asyncio
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing import Optional, List
 
 from src.tagging.worker import nim_classify, process_all_songs
-from src.core.database import nav_db_context, sem_db_context
+from src.core.database import nav_db_context, sem_db_context, dbs_context
 from src.core.schema import init_semantic_db
 from src.utils.logger import setup_logger
 
-logger = setup_logger("api_tagging", "api.log", level=logging.INFO)
+logger = setup_logger("api", level=logging.INFO)
 
 router = APIRouter()
 
@@ -189,48 +189,46 @@ async def process_batch_tags(songs: List[dict]):
     后台处理批量标签生成
     """
     try:
-        # 初始化语义数据库
-        init_semantic_db()
-        
-        # 连接数据库
-        sem_conn = connect_sem_db()
-        
-        for idx, song in enumerate(songs):
-            try:
-                # 生成标签
-                tags, _ = nim_classify(song["title"], song["artist"], song.get("album", ""))
-                
-                if tags:
-                    # 保存到数据库
-                    sem_conn.execute("""
-                        INSERT OR REPLACE INTO music_semantic
-                        (file_id, title, artist, album, mood, energy, genre, region, subculture, scene, confidence)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        f"song_{idx}",  # 临时ID
-                        song["title"],
-                        song["artist"],
-                        song.get("album", ""),
-                        tags.get("mood"),
-                        tags.get("energy"),
-                        tags.get("genre"),
-                        tags.get("region"),
-                        tags.get("subculture"),
-                        tags.get("scene"),
-                        tags.get("confidence", 0.0)
-                    ))
-                    sem_conn.commit()
-                
-                # 更新进度
-                tagging_progress["processed"] += 1
-                
-            except Exception as e:
-                logger.error(f"处理歌曲 {song['artist']} - {song['title']} 失败: {e}")
-                continue
-        
-        tagging_progress["status"] = "completed"
-        logger.info(f"批量标签生成完成，共处理 {len(songs)} 首歌曲")
-        
+        with sem_db_context() as sem_conn:
+            # 初始化语义数据库
+            init_semantic_db(sem_conn)
+            
+            for idx, song in enumerate(songs):
+                try:
+                    # 生成标签
+                    tags, _ = nim_classify(song["title"], song["artist"], song.get("album", ""))
+                    
+                    if tags:
+                        # 保存到数据库
+                        sem_conn.execute("""
+                            INSERT OR REPLACE INTO music_semantic
+                            (file_id, title, artist, album, mood, energy, genre, region, subculture, scene, confidence)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            f"song_{idx}",  # 临时ID
+                            song["title"],
+                            song["artist"],
+                            song.get("album", ""),
+                            tags.get("mood"),
+                            tags.get("energy"),
+                            tags.get("genre"),
+                            tags.get("region"),
+                            tags.get("subculture"),
+                            tags.get("scene"),
+                            tags.get("confidence", 0.0)
+                        ))
+                        sem_conn.commit()
+                    
+                    # 更新进度
+                    tagging_progress["processed"] += 1
+                    
+                except Exception as e:
+                    logger.error(f"处理歌曲 {song['artist']} - {song['title']} 失败: {e}")
+                    continue
+            
+            tagging_progress["status"] = "completed"
+            logger.info(f"批量标签生成完成，共处理 {len(songs)} 首歌曲")
+            
     except Exception as e:
         logger.error(f"批量标签生成失败: {e}")
         tagging_progress["status"] = "failed"
@@ -285,7 +283,7 @@ async def get_tagging_status():
 
 @router.get("/preview")
 async def preview_tagging(
-    limit: int = Field(default=5, ge=1, le=20, description="预览数量，范围1-20")
+    limit: int = Query(default=5, ge=1, le=20, description="预览数量，范围1-20")
 ):
     """
     预览标签生成（前端专用）
@@ -440,25 +438,22 @@ async def get_tagging_history(limit: int = 20, offset: int = 0):
     - **offset**: 偏移量，默认 0
     """
     try:
-        sem_conn = connect_sem_db()
-        
-        # 获取历史记录
-        cursor = sem_conn.execute("""
-            SELECT file_id, title, artist, album, mood, energy, scene,
-                   region, subculture, genre, confidence, updated_at
-            FROM music_semantic
-            ORDER BY updated_at DESC
-            LIMIT ? OFFSET ?
-        """, (limit, offset))
-        
-        rows = cursor.fetchall()
-        
-        # 获取总数
-        total = sem_conn.execute("SELECT COUNT(*) FROM music_semantic").fetchone()[0]
-        
-        sem_conn.close()
-        
-        history = []
+        with sem_db_context() as sem_conn:
+            # 获取历史记录
+            cursor = sem_conn.execute("""
+                SELECT file_id, title, artist, album, mood, energy, scene,
+                       region, subculture, genre, confidence, updated_at
+                FROM music_semantic
+                ORDER BY updated_at DESC
+                LIMIT ? OFFSET ?
+            """, (limit, offset))
+            
+            rows = cursor.fetchall()
+            
+            # 获取总数
+            total = sem_conn.execute("SELECT COUNT(*) FROM music_semantic").fetchone()[0]
+            
+            history = []
         for row in rows:
             history.append({
                 "file_id": row[0],
@@ -497,36 +492,30 @@ async def run_tagging_task():
     后台任务：处理所有未标签的歌曲
     """
     try:
-        # 获取待处理歌曲数量
-        nav_conn = connect_nav_db()
-        sem_conn = connect_sem_db()
-        
-        init_semantic_db(sem_conn)
-        
-        # 获取所有歌曲
-        nav_songs = nav_conn.execute("""
-            SELECT id, title, artist, album
-            FROM media_file
-        """).fetchall()
-        
-        # 获取已处理的歌曲ID
-        processed_ids = {row['file_id'] for row in sem_conn.execute("SELECT file_id FROM music_semantic").fetchall()}
-        
-        # 筛选未处理的歌曲
-        todo_songs = [s for s in nav_songs if str(s['id']) not in processed_ids]
-        
-        nav_conn.close()
-        sem_conn.close()
-        
-        # 更新总数
-        tagging_progress["total"] = len(todo_songs)
-        await broadcast_progress()
-        
-        if len(todo_songs) == 0:
-            tagging_progress["status"] = "completed"
+        with dbs_context() as (nav_conn, sem_conn):
+            init_semantic_db(sem_conn)
+            
+            # 获取所有歌曲
+            nav_songs = nav_conn.execute("""
+                SELECT id, title, artist, album
+                FROM media_file
+            """).fetchall()
+            
+            # 获取已处理的歌曲ID
+            processed_ids = {row['file_id'] for row in sem_conn.execute("SELECT file_id FROM music_semantic").fetchall()}
+            
+            # 筛选未处理的歌曲
+            todo_songs = [s for s in nav_songs if str(s['id']) not in processed_ids]
+            
+            # 更新总数
+            tagging_progress["total"] = len(todo_songs)
             await broadcast_progress()
-            logger.info("没有需要处理的歌曲")
-            return
+            
+            if len(todo_songs) == 0:
+                tagging_progress["status"] = "completed"
+                await broadcast_progress()
+                logger.info("没有需要处理的歌曲")
+                return
         
         # 调用处理函数
         result = process_all_songs()

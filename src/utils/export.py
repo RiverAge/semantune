@@ -11,15 +11,15 @@ from collections import defaultdict
 from typing import Tuple, Dict, Any
 
 from config.settings import EXPORT_DIR
-from src.core.database import connect_nav_db, connect_sem_db
+from src.core.database import dbs_context
 from src.utils.common import setup_windows_encoding
 from src.utils.logger import setup_logger
 
 # 设置 Windows 控制台编码
 setup_windows_encoding()
 
-# 设置日志
-logger = setup_logger('export', 'export.log', level=logging.INFO)
+# 设置日志（使用统一的日志配置）
+logger = setup_logger('export', level=logging.INFO)
 
 
 def get_user_id(nav_conn) -> Tuple[str, str]:
@@ -211,57 +211,52 @@ def main() -> None:
     logger.info("  用户数据导出工具")
     logger.info("=" * 80)
 
-    nav_conn = connect_nav_db()
-    sem_conn = connect_sem_db()
+    with dbs_context() as (nav_conn, sem_conn):
+        # 获取用户ID
+        user_id, user_name = get_user_id(nav_conn)
 
-    # 获取用户ID
-    user_id, user_name = get_user_id(nav_conn)
+        # 创建导出目录
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        export_dir = f"{EXPORT_DIR}/export_{user_name}_{timestamp}"
+        import os
+        os.makedirs(export_dir, exist_ok=True)
 
-    # 创建导出目录
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    export_dir = f"{EXPORT_DIR}/export_{user_name}_{timestamp}"
-    import os
-    os.makedirs(export_dir, exist_ok=True)
+        logger.info(f"导出目录: {export_dir}")
 
-    logger.info(f"导出目录: {export_dir}")
+        # 导出播放历史
+        logger.info("1. 导出播放历史...")
+        play_history_file = f"{export_dir}/play_history.csv"
+        count = export_play_history(nav_conn, sem_conn, user_id, play_history_file)
+        logger.info(f"   已导出 {count} 首歌曲")
 
-    # 导出播放历史
-    logger.info("1. 导出播放历史...")
-    play_history_file = f"{export_dir}/play_history.csv"
-    count = export_play_history(nav_conn, sem_conn, user_id, play_history_file)
-    logger.info(f"   已导出 {count} 首歌曲")
+        # 导出歌单
+        logger.info("2. 导出歌单...")
+        playlists_file = f"{export_dir}/playlists.csv"
+        count = export_playlists(nav_conn, sem_conn, user_id, playlists_file)
+        logger.info(f"   已导出 {count} 个歌单")
 
-    # 导出歌单
-    logger.info("2. 导出歌单...")
-    playlists_file = f"{export_dir}/playlists.csv"
-    count = export_playlists(nav_conn, sem_conn, user_id, playlists_file)
-    logger.info(f"   已导出 {count} 个歌单")
+        # 导出统计
+        logger.info("3. 导出统计数据...")
+        stats_file = f"{export_dir}/statistics.json"
+        stats = export_statistics(nav_conn, sem_conn, user_id, stats_file)
+        logger.info(f"   总歌曲数: {stats['total_songs']}")
+        logger.info(f"   总播放次数: {stats['total_plays']}")
+        logger.info(f"   收藏歌曲数: {stats['starred_count']}")
+        logger.info(f"   歌单数量: {stats['playlist_count']}")
 
-    # 导出统计
-    logger.info("3. 导出统计数据...")
-    stats_file = f"{export_dir}/statistics.json"
-    stats = export_statistics(nav_conn, sem_conn, user_id, stats_file)
-    logger.info(f"   总歌曲数: {stats['total_songs']}")
-    logger.info(f"   总播放次数: {stats['total_plays']}")
-    logger.info(f"   收藏歌曲数: {stats['starred_count']}")
-    logger.info(f"   歌单数量: {stats['playlist_count']}")
+        # 创建 README
+        readme_file = f"{export_dir}/README.md"
+        with open(readme_file, 'w', encoding='utf-8') as f:
+            f.write(f"# 用户数据导出\n\n")
+            f.write(f"**用户**: {user_name}\n")
+            f.write(f"**导出时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+            f.write(f"## 文件说明\n\n")
+            f.write(f"- `play_history.csv` - 播放历史（包含语义标签）\n")
+            f.write(f"- `playlists.csv` - 用户歌单\n")
+            f.write(f"- `statistics.json` - 统计数据\n")
 
-    # 创建 README
-    readme_file = f"{export_dir}/README.md"
-    with open(readme_file, 'w', encoding='utf-8') as f:
-        f.write(f"# 用户数据导出\n\n")
-        f.write(f"**用户**: {user_name}\n")
-        f.write(f"**导出时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-        f.write(f"## 文件说明\n\n")
-        f.write(f"- `play_history.csv` - 播放历史（包含语义标签）\n")
-        f.write(f"- `playlists.csv` - 用户歌单\n")
-        f.write(f"- `statistics.json` - 统计数据\n")
-
-    logger.info(f"✅ 导出完成！")
-    logger.info(f"   所有文件已保存到: {export_dir}")
-
-    nav_conn.close()
-    sem_conn.close()
+        logger.info(f"✅ 导出完成！")
+        logger.info(f"   所有文件已保存到: {export_dir}")
 
 
 if __name__ == "__main__":

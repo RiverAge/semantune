@@ -12,12 +12,12 @@ from typing import Optional, Tuple, Dict, Any
 
 from config.settings import NAV_DB, SEM_DB, get_api_key, BASE_URL, MODEL, LOG_DIR, API_PROVIDER, API_CONFIG
 from config.constants import ALLOWED_LABELS, PROMPT_TEMPLATE
-from src.core.database import connect_nav_db, connect_sem_db
+from src.core.database import nav_db_context, sem_db_context, dbs_context
 from src.core.schema import init_semantic_db
 from src.utils.logger import setup_logger
 
-# 设置日志
-logger = setup_logger('tagging', 'semantic_processing.log', level=logging.DEBUG)
+# 设置日志（使用统一的日志配置）
+logger = setup_logger('tagging', level=logging.DEBUG)
 
 
 def safe_extract_json(text: str) -> Optional[Dict[str, Any]]:
@@ -140,79 +140,77 @@ def format_time(seconds: float) -> str:
 
 def main() -> None:
     """主函数 - 处理所有未打标签的歌曲"""
-    nav = connect_nav_db()
-    sem = connect_sem_db()
+    with dbs_context() as (nav, sem):
+        # 初始化表结构
+        init_semantic_db(sem)
 
-    # 初始化表结构
-    init_semantic_db(sem)
+        # 获取进度
+        done_ids = {row['file_id'] for row in sem.execute("SELECT file_id FROM music_semantic").fetchall()}
+        all_songs = nav.execute("SELECT id, title, artist, album FROM media_file").fetchall()
+        todo = [s for s in all_songs if str(s['id']) not in done_ids]
 
-    # 获取进度
-    done_ids = {row['file_id'] for row in sem.execute("SELECT file_id FROM music_semantic").fetchall()}
-    all_songs = nav.execute("SELECT id, title, artist, album FROM media_file").fetchall()
-    todo = [s for s in all_songs if str(s['id']) not in done_ids]
+        total = len(todo)
+        if total == 0:
+            logger.info("✅ All songs processed.")
+            return
 
-    total = len(todo)
-    if total == 0:
-        logger.info("✅ All songs processed.")
-        return
+        logger.info(f"🎵 Processing {total} new songs. (Total in Library: {len(all_songs)})")
+        start_time = time.time()
+        success = 0
 
-    logger.info(f"🎵 Processing {total} new songs. (Total in Library: {len(all_songs)})")
-    start_time = time.time()
-    success = 0
+        # 循环处理并记录日志
+        for idx, s in enumerate(todo, 1):
+            meta = f"{s['artist']} - {s['title']}"
+            try:
+                t0 = time.time()
+                # 获取结果
+                res, raw_content = nim_classify(s["title"], s["artist"], s["album"])
+                elapsed = time.time() - t0
 
-    # 循环处理并记录日志
-    for idx, s in enumerate(todo, 1):
-        meta = f"{s['artist']} - {s['title']}"
-        try:
-            t0 = time.time()
-            # 获取结果
-            res, raw_content = nim_classify(s["title"], s["artist"], s["album"])
-            elapsed = time.time() - t0
+                if not res:
+                    raise ValueError("Failed to parse JSON from AI response")
 
-            if not res:
-                raise ValueError("Failed to parse JSON from AI response")
+                # 规范化
+                mood = normalize("mood", res.get("mood"))
+                energy = normalize("energy", res.get("energy"))
+                scene = normalize("scene", res.get("scene"))
+                region = normalize("region", res.get("region"))
+                subculture = normalize("subculture", res.get("subculture"))
+                genre = normalize("genre", res.get("genre"))
+                conf = float(res.get("confidence", 0.0))
 
-            # 规范化
-            mood = normalize("mood", res.get("mood"))
-            energy = normalize("energy", res.get("energy"))
-            scene = normalize("scene", res.get("scene"))
-            region = normalize("region", res.get("region"))
-            subculture = normalize("subculture", res.get("subculture"))
-            genre = normalize("genre", res.get("genre"))
-            conf = float(res.get("confidence", 0.0))
+                # 写入数据库
+                sem.execute("""
+                    INSERT OR REPLACE INTO music_semantic (
+                        file_id, title, artist, album, mood, energy, scene,
+                        region, subculture, genre, confidence, model
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (str(s['id']), s['title'], s['artist'], s['album'],
+                      mood, energy, scene, region, subculture, genre,
+                      conf, MODEL))
+                sem.commit()
+                success += 1
 
-            # 写入数据库
-            sem.execute("""
-                INSERT OR REPLACE INTO music_semantic (
-                    file_id, title, artist, album, mood, energy, scene,
-                    region, subculture, genre, confidence, model
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (str(s['id']), s['title'], s['artist'], s['album'],
-                  mood, energy, scene, region, subculture, genre,
-                  conf, MODEL))
-            sem.commit()
-            success += 1
+                # 详细日志写入
+                logger.debug(
+                    f"[{idx}/{total}] 🎧 {meta} | "
+                    f"🧠 Raw LLM Content: {raw_content[:200]}... | "
+                    f"🧾 Stored: {mood}|{energy}|{region}|{subculture}|{genre} (Conf: {conf}) | "
+                    f"✅ Done in {elapsed:.2f}s"
+                )
 
-            # 详细日志写入
-            logger.debug(
-                f"[{idx}/{total}] 🎧 {meta} | "
-                f"🧠 Raw LLM Content: {raw_content[:200]}... | "
-                f"🧾 Stored: {mood}|{energy}|{region}|{subculture}|{genre} (Conf: {conf}) | "
-                f"✅ Done in {elapsed:.2f}s"
-            )
+                # 控制台进度条
+                avg_time = (time.time() - start_time) / success
+                eta = avg_time * (total - idx)
+                disp_meta = (meta[:30] + '..') if len(meta) > 30 else meta
+                sys.stdout.write(f"\r进度:[{idx}/{total}] ETA:{format_time(eta)} | {disp_meta:<35}")
+                sys.stdout.flush()
 
-            # 控制台进度条
-            avg_time = (time.time() - start_time) / success
-            eta = avg_time * (total - idx)
-            disp_meta = (meta[:30] + '..') if len(meta) > 30 else meta
-            sys.stdout.write(f"\r进度:[{idx}/{total}] ETA:{format_time(eta)} | {disp_meta:<35}")
-            sys.stdout.flush()
+            except Exception as e:
+                logger.error(f"❌ FAILED: {meta} | Error: {str(e)}")
+                time.sleep(API_CONFIG["retry_delay"])
 
-        except Exception as e:
-            logger.error(f"❌ FAILED: {meta} | Error: {str(e)}")
-            time.sleep(API_CONFIG["retry_delay"])
-
-    logger.info(f"🏁 Finished. Processed {success}/{total} songs in {format_time(time.time()-start_time)}")
+        logger.info(f"🏁 Finished. Processed {success}/{total} songs in {format_time(time.time()-start_time)}")
 
 
 def process_all_songs() -> dict:
@@ -222,94 +220,92 @@ def process_all_songs() -> dict:
     Returns:
         dict: 处理结果统计
     """
-    nav = connect_nav_db()
-    sem = connect_sem_db()
+    with dbs_context() as (nav, sem):
+        # 初始化表结构
+        init_semantic_db(sem)
 
-    # 初始化表结构
-    init_semantic_db(sem)
+        # 获取进度
+        done_ids = {row['file_id'] for row in sem.execute("SELECT file_id FROM music_semantic").fetchall()}
+        all_songs = nav.execute("SELECT id, title, artist, album FROM media_file").fetchall()
+        todo = [s for s in all_songs if str(s['id']) not in done_ids]
 
-    # 获取进度
-    done_ids = {row['file_id'] for row in sem.execute("SELECT file_id FROM music_semantic").fetchall()}
-    all_songs = nav.execute("SELECT id, title, artist, album FROM media_file").fetchall()
-    todo = [s for s in all_songs if str(s['id']) not in done_ids]
+        total = len(todo)
+        if total == 0:
+            logger.info("✅ All songs processed.")
+            return {"total": 0, "processed": 0, "failed": 0}
 
-    total = len(todo)
-    if total == 0:
-        logger.info("✅ All songs processed.")
-        return {"total": 0, "processed": 0, "failed": 0}
+        logger.info(f"🎵 Processing {total} new songs. (Total in Library: {len(all_songs)})")
+        start_time = time.time()
+        success = 0
+        failed = 0
 
-    logger.info(f"🎵 Processing {total} new songs. (Total in Library: {len(all_songs)})")
-    start_time = time.time()
-    success = 0
-    failed = 0
+        # 循环处理并记录日志
+        for idx, s in enumerate(todo, 1):
+            # 检查是否被中止
+            from src.api.routes.tagging import tagging_progress
+            if tagging_progress["status"] == "stopped":
+                logger.info(f"⏹️ Task stopped by user. Processed {success}/{total} songs.")
+                return {
+                    "total": total,
+                    "processed": success,
+                    "failed": failed,
+                    "stopped": True
+                }
+            
+            meta = f"{s['artist']} - {s['title']}"
+            try:
+                t0 = time.time()
+                # 获取结果
+                res, raw_content = nim_classify(s["title"], s["artist"], s["album"])
+                elapsed = time.time() - t0
 
-    # 循环处理并记录日志
-    for idx, s in enumerate(todo, 1):
-        # 检查是否被中止
-        from src.api.routes.tagging import tagging_progress
-        if tagging_progress["status"] == "stopped":
-            logger.info(f"⏹️ Task stopped by user. Processed {success}/{total} songs.")
-            return {
-                "total": total,
-                "processed": success,
-                "failed": failed,
-                "stopped": True
-            }
+                if not res:
+                    raise ValueError("Failed to parse JSON from AI response")
+
+                # 规范化
+                mood = normalize("mood", res.get("mood"))
+                energy = normalize("energy", res.get("energy"))
+                scene = normalize("scene", res.get("scene"))
+                region = normalize("region", res.get("region"))
+                subculture = normalize("subculture", res.get("subculture"))
+                genre = normalize("genre", res.get("genre"))
+                conf = float(res.get("confidence", 0.0))
+
+                # 写入数据库
+                sem.execute("""
+                    INSERT OR REPLACE INTO music_semantic (
+                        file_id, title, artist, album, mood, energy, scene,
+                        region, subculture, genre, confidence, model
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (str(s['id']), s['title'], s['artist'], s['album'],
+                      mood, energy, scene, region, subculture, genre,
+                      conf, MODEL))
+                sem.commit()
+                success += 1
+
+                # 详细日志写入
+                logger.debug(
+                    f"[{idx}/{total}] 🎧 {meta} | "
+                    f"🧠 Raw LLM Content: {raw_content[:200]}... | "
+                    f"🧾 Stored: {mood}|{energy}|{region}|{subculture}|{genre} (Conf: {conf}) | "
+                    f"✅ Done in {elapsed:.2f}s"
+                )
+
+                # 更新全局进度（用于前端轮询）
+                tagging_progress["processed"] = success
+
+            except Exception as e:
+                logger.error(f"❌ FAILED: {meta} | Error: {str(e)}")
+                failed += 1
+                time.sleep(API_CONFIG["retry_delay"])
+
+        logger.info(f"🏁 Finished. Processed {success}/{total} songs in {format_time(time.time()-start_time)}")
         
-        meta = f"{s['artist']} - {s['title']}"
-        try:
-            t0 = time.time()
-            # 获取结果
-            res, raw_content = nim_classify(s["title"], s["artist"], s["album"])
-            elapsed = time.time() - t0
-
-            if not res:
-                raise ValueError("Failed to parse JSON from AI response")
-
-            # 规范化
-            mood = normalize("mood", res.get("mood"))
-            energy = normalize("energy", res.get("energy"))
-            scene = normalize("scene", res.get("scene"))
-            region = normalize("region", res.get("region"))
-            subculture = normalize("subculture", res.get("subculture"))
-            genre = normalize("genre", res.get("genre"))
-            conf = float(res.get("confidence", 0.0))
-
-            # 写入数据库
-            sem.execute("""
-                INSERT OR REPLACE INTO music_semantic (
-                    file_id, title, artist, album, mood, energy, scene,
-                    region, subculture, genre, confidence, model
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (str(s['id']), s['title'], s['artist'], s['album'],
-                  mood, energy, scene, region, subculture, genre,
-                  conf, MODEL))
-            sem.commit()
-            success += 1
-
-            # 详细日志写入
-            logger.debug(
-                f"[{idx}/{total}] 🎧 {meta} | "
-                f"🧠 Raw LLM Content: {raw_content[:200]}... | "
-                f"🧾 Stored: {mood}|{energy}|{region}|{subculture}|{genre} (Conf: {conf}) | "
-                f"✅ Done in {elapsed:.2f}s"
-            )
-
-            # 更新全局进度（用于前端轮询）
-            tagging_progress["processed"] = success
-
-        except Exception as e:
-            logger.error(f"❌ FAILED: {meta} | Error: {str(e)}")
-            failed += 1
-            time.sleep(API_CONFIG["retry_delay"])
-
-    logger.info(f"🏁 Finished. Processed {success}/{total} songs in {format_time(time.time()-start_time)}")
-    
-    return {
-        "total": total,
-        "processed": success,
-        "failed": failed
-    }
+        return {
+            "total": total,
+            "processed": success,
+            "failed": failed
+        }
 
 
 if __name__ == "__main__":

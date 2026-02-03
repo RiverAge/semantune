@@ -24,6 +24,10 @@
 
 ### 📝 最近更新
 
+**v1.1.1** (2026-02-03)
+- ✅ 修复 FastAPI 路由参数错误 - GET 请求查询参数使用 Query 而非 Field
+- ✅ 修复 API 启动失败问题 - 解决 AssertionError: non-body parameters 错误
+
 **v1.1.0** (2026-02-03)
 - ✅ 消除代码重复 - 提取共享函数到 `src/utils/user.py`
 - ✅ 修复数据库连接管理 - 所有 API 路由使用上下文管理器

@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from config.settings import LOG_DIR
+from config.settings import LOG_DIR, LOG_FILES
 
 
 def setup_logger(
@@ -20,8 +20,8 @@ def setup_logger(
     设置日志记录器
     
     Args:
-        name: 日志记录器名称
-        log_file: 日志文件路径（可选）
+        name: 日志记录器名称（如果 log_file 为 None，将从 LOG_FILES 中查找对应的日志文件名）
+        log_file: 日志文件路径（可选，如果为 None 则使用 LOG_FILES 中的配置）
         level: 文件日志级别
         console_level: 控制台日志级别
     
@@ -47,7 +47,11 @@ def setup_logger(
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
     
-    # 文件处理器（如果指定了日志文件）
+    # 文件处理器（如果指定了日志文件或从配置中查找）
+    if log_file is None:
+        # 尝试从 LOG_FILES 中查找对应的日志文件名
+        log_file = LOG_FILES.get(name)
+    
     if log_file:
         log_path = Path(LOG_DIR) / log_file
         log_path.parent.mkdir(parents=True, exist_ok=True)

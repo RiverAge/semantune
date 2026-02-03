@@ -5,15 +5,15 @@
 import sys
 import logging
 
-from src.core.database import connect_sem_db
+from src.core.database import sem_db_context
 from src.utils.common import setup_windows_encoding
 from src.utils.logger import setup_logger
 
 # 设置 Windows 控制台编码
 setup_windows_encoding()
 
-# 设置日志
-logger = setup_logger('analyze', 'analyze.log', level=logging.INFO)
+# 设置日志（使用统一的日志配置）
+logger = setup_logger('analyze', level=logging.INFO)
 
 
 def print_section(title: str) -> None:
@@ -135,9 +135,7 @@ def show_samples(conn) -> None:
 
 def main() -> None:
     """主函数"""
-    try:
-        conn = connect_sem_db()
-
+    with sem_db_context() as conn:
         print_section("语义标签数据分析报告")
 
         # 1. 数据质量
@@ -168,12 +166,6 @@ def main() -> None:
         logger.info("=" * 80)
         logger.info("  分析完成!")
         logger.info("=" * 80)
-
-        conn.close()
-
-    except Exception as e:
-        logger.error(f"错误: {e}")
-        sys.exit(1)
 
 
 if __name__ == "__main__":

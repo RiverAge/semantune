@@ -2,20 +2,33 @@
 FastAPI 主应用文件
 """
 import logging
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
 from src.api.routes import recommend, query, tagging, analyze
 from src.utils.logger import setup_logger
-from config.settings import CORS_ORIGINS
+from config.settings import CORS_ORIGINS, VERSION
+from src.core.exceptions import (
+    semantune_exception_handler,
+    http_exception_handler,
+    general_exception_handler,
+    SemantuneException
+)
 
-logger = setup_logger("api", "api.log", level=logging.INFO)
+logger = setup_logger("api", level=logging.INFO)
 
 # 创建 FastAPI 应用
 app = FastAPI(
     title="Navidrome 语义音乐推荐系统 API",
     description="基于 LLM 语义标签的个性化音乐推荐系统",
-    version="1.0.0"
+    version=VERSION
 )
+
+# 注册全局异常处理器
+app.add_exception_handler(SemantuneException, semantune_exception_handler)
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, http_exception_handler)
+app.add_exception_handler(Exception, general_exception_handler)
 
 # 配置 CORS - 从环境变量读取允许的来源
 app.add_middleware(
@@ -38,7 +51,7 @@ async def root():
     """根路径"""
     return {
         "message": "Navidrome 语义音乐推荐系统 API",
-        "version": "1.0.0",
+        "version": VERSION,
         "docs": "/docs",
         "redoc": "/redoc"
     }

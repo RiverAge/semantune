@@ -17,8 +17,8 @@ import requests
 # 设置 Windows 控制台编码
 setup_windows_encoding()
 
-# 设置日志
-logger = setup_logger('tagging_preview', 'tagging_preview.log', level=logging.DEBUG)
+# 设置日志（使用统一的日志配置）
+logger = setup_logger('tagging_preview', level=logging.DEBUG)
 
 
 def safe_extract_json(text: str) -> Optional[Dict[str, Any]]:

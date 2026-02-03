@@ -7,15 +7,15 @@ import logging
 from typing import List, Optional, Dict, Any
 
 from config.constants import ALLOWED_LABELS
-from src.core.database import connect_sem_db
+from src.core.database import sem_db_context
 from src.utils.common import setup_windows_encoding
 from src.utils.logger import setup_logger
 
 # 设置 Windows 控制台编码
 setup_windows_encoding()
 
-# 设置日志
-logger = setup_logger('query', 'query.log', level=logging.INFO)
+# 设置日志（使用统一的日志配置）
+logger = setup_logger('query', level=logging.INFO)
 
 
 def print_songs(songs: List[Dict[str, Any]], title: str = "查询结果") -> None:
@@ -228,80 +228,78 @@ def show_menu():
 
 def main() -> None:
     """主函数"""
-    sem = connect_sem_db()
-    last_results = []
+    with sem_db_context() as sem:
+        last_results = []
 
-    logger.info("欢迎使用语义标签查询工具！")
+        logger.info("欢迎使用语义标签查询工具！")
 
-    while True:
-        show_menu()
-        choice = input("\n请选择功能 (0-6): ").strip()
+        while True:
+            show_menu()
+            choice = input("\n请选择功能 (0-6): ").strip()
 
-        if choice == "0":
-            logger.info("再见！")
-            break
+            if choice == "0":
+                logger.info("再见！")
+                break
 
-        elif choice == "1":
-            mood_list = ", ".join(sorted(ALLOWED_LABELS['mood']))
-            print(f"\n可用情绪: {mood_list}")
-            mood = input("请输入情绪: ").strip()
-            limit = int(input("返回数量 (默认20): ").strip() or "20")
+            elif choice == "1":
+                mood_list = ", ".join(sorted(ALLOWED_LABELS['mood']))
+                print(f"\n可用情绪: {mood_list}")
+                mood = input("请输入情绪: ").strip()
+                limit = int(input("返回数量 (默认20): ").strip() or "20")
 
-            results = query_by_mood(sem, mood, limit)
-            print_songs(results, f"情绪={mood}")
-            last_results = results
+                results = query_by_mood(sem, mood, limit)
+                print_songs(results, f"情绪={mood}")
+                last_results = results
 
-        elif choice == "2":
-            print("\n请输入查询条件 (留空跳过):")
-            mood = input("  情绪 (Mood): ").strip() or None
-            energy_list = "/".join(sorted(ALLOWED_LABELS['energy']))
-            energy = input(f"  能量 (Energy: {energy_list}): ").strip() or None
-            genre_list = "/".join(sorted(ALLOWED_LABELS['genre']))
-            genre = input(f"  流派 (Genre: {genre_list}): ").strip() or None
-            region_list = "/".join(sorted(ALLOWED_LABELS['region']))
-            region = input(f"  地区 (Region: {region_list}): ").strip() or None
-            limit = int(input("  返回数量 (默认20): ").strip() or "20")
+            elif choice == "2":
+                print("\n请输入查询条件 (留空跳过):")
+                mood = input("  情绪 (Mood): ").strip() or None
+                energy_list = "/".join(sorted(ALLOWED_LABELS['energy']))
+                energy = input(f"  能量 (Energy: {energy_list}): ").strip() or None
+                genre_list = "/".join(sorted(ALLOWED_LABELS['genre']))
+                genre = input(f"  流派 (Genre: {genre_list}): ").strip() or None
+                region_list = "/".join(sorted(ALLOWED_LABELS['region']))
+                region = input(f"  地区 (Region: {region_list}): ").strip() or None
+                limit = int(input("  返回数量 (默认20): ").strip() or "20")
 
-            results = query_by_tags(sem, mood, energy, genre, region, limit)
-            tag_desc = " + ".join(filter(None, [mood, energy, genre, region]))
-            print_songs(results, f"标签组合: {tag_desc}")
-            last_results = results
+                results = query_by_tags(sem, mood, energy, genre, region, limit)
+                tag_desc = " + ".join(filter(None, [mood, energy, genre, region]))
+                print_songs(results, f"标签组合: {tag_desc}")
+                last_results = results
 
-        elif choice == "3":
-            print("\n可用场景: 深夜, 运动, 学习, 开车, 放松, 派对, 伤心, 励志")
-            scene = input("请选择场景: ").strip()
-            limit = int(input("返回数量 (默认20): ").strip() or "20")
+            elif choice == "3":
+                print("\n可用场景: 深夜, 运动, 学习, 开车, 放松, 派对, 伤心, 励志")
+                scene = input("请选择场景: ").strip()
+                limit = int(input("返回数量 (默认20): ").strip() or "20")
 
-            results = query_scene_preset(sem, scene, limit)
-            print_songs(results, f"场景: {scene}")
-            last_results = results
+                results = query_scene_preset(sem, scene, limit)
+                print_songs(results, f"场景: {scene}")
+                last_results = results
 
-        elif choice == "4":
-            song_title = input("\n请输入歌曲名 (支持模糊搜索): ").strip()
-            limit = int(input("返回数量 (默认20): ").strip() or "20")
+            elif choice == "4":
+                song_title = input("\n请输入歌曲名 (支持模糊搜索): ").strip()
+                limit = int(input("返回数量 (默认20): ").strip() or "20")
 
-            results = query_similar_to_song(sem, song_title, limit)
-            print_songs(results, f"与 '{song_title}' 相似的歌曲")
-            last_results = results
+                results = query_similar_to_song(sem, song_title, limit)
+                print_songs(results, f"与 '{song_title}' 相似的歌曲")
+                last_results = results
 
-        elif choice == "5":
-            limit = int(input("\n返回数量 (默认20): ").strip() or "20")
-            results = query_by_tags(sem, limit=limit)
-            print_songs(results, "随机推荐")
-            last_results = results
+            elif choice == "5":
+                limit = int(input("\n返回数量 (默认20): ").strip() or "20")
+                results = query_by_tags(sem, limit=limit)
+                print_songs(results, "随机推荐")
+                last_results = results
 
-        elif choice == "6":
-            if not last_results:
-                logger.warning("没有可导出的结果")
-                continue
+            elif choice == "6":
+                if not last_results:
+                    logger.warning("没有可导出的结果")
+                    continue
 
-            filename = input("\n请输入文件名 (默认: playlist.txt): ").strip() or "playlist.txt"
-            export_playlist(last_results, filename)
+                filename = input("\n请输入文件名 (默认: playlist.txt): ").strip() or "playlist.txt"
+                export_playlist(last_results, filename)
 
-        else:
-            logger.warning("无效选择，请重试")
-
-    sem.close()
+            else:
+                logger.warning("无效选择，请重试")
 
 
 if __name__ == "__main__":

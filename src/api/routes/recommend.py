@@ -2,7 +2,7 @@
 推荐接口路由
 """
 import logging
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from typing import Optional, List
 
@@ -10,7 +10,7 @@ from src.recommend.engine import recommend, get_user_songs
 from src.core.database import nav_db_context
 from src.utils.logger import setup_logger
 
-logger = setup_logger("api_recommend", "api.log", level=logging.INFO)
+logger = setup_logger("api", level=logging.INFO)
 
 router = APIRouter()
 
@@ -104,8 +104,8 @@ async def list_users():
 
 @router.get("/list")
 async def get_recommendations_get(
-    username: str = Field(..., min_length=1, max_length=100, description="用户名"),
-    limit: int = Field(default=30, ge=1, le=100, description="推荐数量，范围1-100")
+    username: str = Query(..., min_length=1, max_length=100, description="用户名"),
+    limit: int = Query(default=30, ge=1, le=100, description="推荐数量，范围1-100")
 ):
     """
     获取个性化推荐（前端专用，GET 方法）
@@ -143,7 +143,7 @@ async def get_recommendations_get(
 
 @router.get("/profile/{username}")
 async def get_user_profile(
-    username: str = Field(..., min_length=1, max_length=100, description="用户名")
+    username: str
 ):
     """
     获取用户画像（前端专用）

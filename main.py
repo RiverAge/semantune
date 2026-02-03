@@ -60,7 +60,7 @@ python main.py tag-preview
     parser.add_argument(
         '--port',
         type=int,
-        default=8000,
+        default=8080,
         help='API 服务监听端口（仅用于 api 命令）'
     )
 
