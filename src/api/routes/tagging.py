@@ -5,11 +5,11 @@ import logging
 import asyncio
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 
 from src.tagging.worker import nim_classify, process_all_songs
-from src.core.database import connect_nav_db, connect_sem_db
+from src.core.database import nav_db_context, sem_db_context
 from src.core.schema import init_semantic_db
 from src.utils.logger import setup_logger
 
@@ -20,9 +20,9 @@ router = APIRouter()
 
 class TagRequest(BaseModel):
     """标签生成请求模型"""
-    title: str
-    artist: str
-    album: str = ""
+    title: str = Field(..., min_length=1, max_length=200, description="歌曲标题")
+    artist: str = Field(..., min_length=1, max_length=100, description="歌手名称")
+    album: str = Field(default="", max_length=200, description="专辑名称")
 
 
 class TagResponse(BaseModel):
@@ -36,7 +36,7 @@ class TagResponse(BaseModel):
 
 class BatchTagRequest(BaseModel):
     """批量标签生成请求模型"""
-    songs: List[dict]  # [{"title": "...", "artist": "...", "album": "..."}]
+    songs: List[dict] = Field(..., min_items=1, max_items=50, description="歌曲列表，最多50首")
 
 
 class TagProgressResponse(BaseModel):
@@ -154,26 +154,21 @@ async def sync_tags_to_db():
         init_semantic_db()
         
         # 连接数据库
-        nav_conn = connect_nav_db()
-        sem_conn = connect_sem_db()
-        
-        # 获取所有歌曲
-        cursor = nav_conn.execute("""
-            SELECT id, title, album_artist, album
-            FROM media_file
-            WHERE media_file_type = 'music'
-        """)
-        songs = cursor.fetchall()
-        
-        # 获取已处理的歌曲ID
-        cursor = sem_conn.execute("SELECT file_id FROM music_semantic")
-        processed_ids = {row[0] for row in cursor.fetchall()}
-        
-        # 筛选未处理的歌曲
-        new_songs = [song for song in songs if song[0] not in processed_ids]
-        
-        nav_conn.close()
-        sem_conn.close()
+        with nav_db_context() as nav_conn, sem_db_context() as sem_conn:
+            # 获取所有歌曲
+            cursor = nav_conn.execute("""
+                SELECT id, title, album_artist, album
+                FROM media_file
+                WHERE media_file_type = 'music'
+            """)
+            songs = cursor.fetchall()
+            
+            # 获取已处理的歌曲ID
+            cursor = sem_conn.execute("SELECT file_id FROM music_semantic")
+            processed_ids = {row[0] for row in cursor.fetchall()}
+            
+            # 筛选未处理的歌曲
+            new_songs = [song for song in songs if song[0] not in processed_ids]
         
         logger.info(f"找到 {len(new_songs)} 首新歌曲需要生成标签")
         
@@ -233,7 +228,6 @@ async def process_batch_tags(songs: List[dict]):
                 logger.error(f"处理歌曲 {song['artist']} - {song['title']} 失败: {e}")
                 continue
         
-        sem_conn.close()
         tagging_progress["status"] = "completed"
         logger.info(f"批量标签生成完成，共处理 {len(songs)} 首歌曲")
         
@@ -248,34 +242,29 @@ async def get_tagging_status():
     获取标签生成状态（前端专用）
     """
     try:
-        nav_conn = connect_nav_db()
-        sem_conn = connect_sem_db()
-        
-        # 初始化语义数据库
-        init_semantic_db(sem_conn)
-        
-        # 获取 Navidrome 中的所有歌曲
-        nav_songs = nav_conn.execute("""
-            SELECT id, title, album_artist
-            FROM media_file
-            ORDER BY id
-        """).fetchall()
-        total = len(nav_songs)
-        
-        # 获取已标签的歌曲
-        tagged = sem_conn.execute("SELECT COUNT(*) FROM music_semantic").fetchone()[0]
-        
-        # 获取待处理的歌曲
-        pending = total - tagged
-        
-        # 获取失败的歌曲（这里简化处理，实际可能需要更复杂的逻辑）
-        failed = 0
-        
-        # 计算进度
-        progress = (tagged / total * 100) if total > 0 else 0
-        
-        nav_conn.close()
-        sem_conn.close()
+        with nav_db_context() as nav_conn, sem_db_context() as sem_conn:
+            # 初始化语义数据库
+            init_semantic_db(sem_conn)
+            
+            # 获取 Navidrome 中的所有歌曲
+            nav_songs = nav_conn.execute("""
+                SELECT id, title, album_artist
+                FROM media_file
+                ORDER BY id
+            """).fetchall()
+            total = len(nav_songs)
+            
+            # 获取已标签的歌曲
+            tagged = sem_conn.execute("SELECT COUNT(*) FROM music_semantic").fetchone()[0]
+            
+            # 获取待处理的歌曲
+            pending = total - tagged
+            
+            # 获取失败的歌曲（这里简化处理，实际可能需要更复杂的逻辑）
+            failed = 0
+            
+            # 计算进度
+            progress = (tagged / total * 100) if total > 0 else 0
         
         return {
             "success": True,
@@ -295,35 +284,34 @@ async def get_tagging_status():
 
 
 @router.get("/preview")
-async def preview_tagging(limit: int = 5):
+async def preview_tagging(
+    limit: int = Field(default=5, ge=1, le=20, description="预览数量，范围1-20")
+):
     """
     预览标签生成（前端专用）
     """
     try:
-        nav_conn = connect_nav_db()
-        
-        # 获取一些未标签的歌曲
-        songs = nav_conn.execute("""
-            SELECT id, title, album_artist
-            FROM media_file
-            LIMIT ?
-        """, (limit,)).fetchall()
-        
-        # 为每首歌生成标签
-        previews = []
-        for song in songs:
-            file_id, title, artist = song
-            try:
-                tags = nim_classify(title, artist, "")
-                previews.append({
-                    "title": title,
-                    "artist": artist,
-                    "tags": tags
-                })
-            except Exception as e:
-                logger.error(f"生成标签失败: {title} - {artist}: {e}")
-        
-        nav_conn.close()
+        with nav_db_context() as nav_conn:
+            # 获取一些未标签的歌曲
+            songs = nav_conn.execute("""
+                SELECT id, title, album_artist
+                FROM media_file
+                LIMIT ?
+            """, (limit,)).fetchall()
+            
+            # 为每首歌生成标签
+            previews = []
+            for song in songs:
+                file_id, title, artist = song
+                try:
+                    tags = nim_classify(title, artist, "")
+                    previews.append({
+                        "title": title,
+                        "artist": artist,
+                        "tags": tags
+                    })
+                except Exception as e:
+                    logger.error(f"生成标签失败: {title} - {artist}: {e}")
         
         return {"success": True, "data": previews}
         

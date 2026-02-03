@@ -3,11 +3,11 @@
 """
 import logging
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 
 from src.query.search import query_by_mood, query_by_tags, query_scene_preset, find_similar_songs, random_songs
-from src.core.database import connect_sem_db
+from src.core.database import sem_db_context
 from src.utils.logger import setup_logger
 
 logger = setup_logger("api_query", "api.log", level=logging.INFO)
@@ -17,35 +17,35 @@ router = APIRouter()
 
 class QueryByMoodRequest(BaseModel):
     """按情绪查询请求模型"""
-    mood: str
-    limit: int = 20
+    mood: str = Field(..., min_length=1, max_length=50, description="情绪标签")
+    limit: int = Field(default=20, ge=1, le=100, description="返回数量，范围1-100")
 
 
 class QueryByTagsRequest(BaseModel):
     """按标签组合查询请求模型"""
-    mood: Optional[str] = None
-    energy: Optional[str] = None
-    genre: Optional[str] = None
-    region: Optional[str] = None
-    limit: int = 20
+    mood: Optional[str] = Field(None, max_length=50, description="情绪标签")
+    energy: Optional[str] = Field(None, max_length=50, description="能量标签")
+    genre: Optional[str] = Field(None, max_length=50, description="流派标签")
+    region: Optional[str] = Field(None, max_length=50, description="地区标签")
+    limit: int = Field(default=20, ge=1, le=100, description="返回数量，范围1-100")
 
 
 class QuerySceneRequest(BaseModel):
     """场景查询请求模型"""
-    scene: str
-    limit: int = 20
+    scene: str = Field(..., min_length=1, max_length=50, description="场景标签")
+    limit: int = Field(default=20, ge=1, le=100, description="返回数量，范围1-100")
 
 
 class FindSimilarRequest(BaseModel):
     """找相似歌曲请求模型"""
-    title: str
-    artist: str
-    limit: int = 20
+    title: str = Field(..., min_length=1, max_length=200, description="歌曲标题")
+    artist: str = Field(..., min_length=1, max_length=100, description="歌手名称")
+    limit: int = Field(default=20, ge=1, le=100, description="返回数量，范围1-100")
 
 
 class RandomRequest(BaseModel):
     """随机推荐请求模型"""
-    limit: int = 20
+    limit: int = Field(default=20, ge=1, le=100, description="返回数量，范围1-100")
 
 
 @router.post("/mood")
@@ -57,9 +57,8 @@ async def query_by_mood_api(request: QueryByMoodRequest):
     - **limit**: 返回数量，默认20
     """
     try:
-        sem_conn = connect_sem_db()
-        songs = query_by_mood(sem_conn, request.mood, request.limit)
-        sem_conn.close()
+        with sem_db_context() as sem_conn:
+            songs = query_by_mood(sem_conn, request.mood, request.limit)
         
         # 转换为字典列表
         result = [
@@ -96,8 +95,8 @@ async def query_by_tags_api(request: QueryByTagsRequest):
     - **limit**: 返回数量，默认20
     """
     try:
-        sem_conn = connect_sem_db()
-        songs = query_by_tags(
+        with sem_db_context() as sem_conn:
+            songs = query_by_tags(
             sem_conn,
             mood=request.mood,
             energy=request.energy,
@@ -105,7 +104,6 @@ async def query_by_tags_api(request: QueryByTagsRequest):
             region=request.region,
             limit=request.limit
         )
-        sem_conn.close()
         
         # 转换为字典列表
         result = [
@@ -141,9 +139,8 @@ async def query_scene_api(request: QuerySceneRequest):
     - **limit**: 返回数量，默认20
     """
     try:
-        sem_conn = connect_sem_db()
-        songs = query_scene_preset(sem_conn, request.scene, request.limit)
-        sem_conn.close()
+        with sem_db_context() as sem_conn:
+            songs = query_scene_preset(sem_conn, request.scene, request.limit)
         
         # 转换为字典列表
         result = [
@@ -178,9 +175,8 @@ async def find_similar_api(request: FindSimilarRequest):
     - **limit**: 返回数量，默认20
     """
     try:
-        sem_conn = connect_sem_db()
-        songs = find_similar_songs(sem_conn, request.title, request.artist, request.limit)
-        sem_conn.close()
+        with sem_db_context() as sem_conn:
+            songs = find_similar_songs(sem_conn, request.title, request.artist, request.limit)
         
         # 转换为字典列表
         result = [
@@ -213,9 +209,8 @@ async def random_api(request: RandomRequest):
     - **limit**: 返回数量，默认20
     """
     try:
-        sem_conn = connect_sem_db()
-        songs = random_songs(sem_conn, request.limit)
-        sem_conn.close()
+        with sem_db_context() as sem_conn:
+            songs = random_songs(sem_conn, request.limit)
         
         # 转换为字典列表
         result = [
@@ -268,39 +263,36 @@ async def query_songs(
     按标签组合查询歌曲（前端专用）
     """
     try:
-        from src.core.database import connect_sem_db
-        
-        sem_conn = connect_sem_db()
-        
-        # 构建查询条件
-        conditions = []
-        params = []
-        
-        if mood:
-            conditions.append("mood = ?")
-            params.append(mood)
-        if energy:
-            conditions.append("energy = ?")
-            params.append(energy)
-        if genre:
-            conditions.append("genre = ?")
-            params.append(genre)
-        if region:
-            conditions.append("region = ?")
-            params.append(region)
-        
-        where_clause = " AND ".join(conditions) if conditions else "1=1"
-        
-        # 查询歌曲
-        query = f"""
-            SELECT file_id, title, artist, album, mood, energy, scene, region, subculture, genre, confidence
-            FROM music_semantic
-            WHERE {where_clause}
-            LIMIT ?
-        """
-        params.append(limit)
-        
-        results = sem_conn.execute(query, params).fetchall()
+        with sem_db_context() as sem_conn:
+            # 构建查询条件
+            conditions = []
+            params = []
+            
+            if mood:
+                conditions.append("mood = ?")
+                params.append(mood)
+            if energy:
+                conditions.append("energy = ?")
+                params.append(energy)
+            if genre:
+                conditions.append("genre = ?")
+                params.append(genre)
+            if region:
+                conditions.append("region = ?")
+                params.append(region)
+            
+            where_clause = " AND ".join(conditions) if conditions else "1=1"
+            
+            # 查询歌曲
+            query = f"""
+                SELECT file_id, title, artist, album, mood, energy, scene, region, subculture, genre, confidence
+                FROM music_semantic
+                WHERE {where_clause}
+                LIMIT ?
+            """
+            params.append(limit)
+            
+            results = sem_conn.execute(query, params).fetchall()
         
         songs = [
             {
@@ -318,8 +310,6 @@ async def query_songs(
             }
             for row in results
         ]
-        
-        sem_conn.close()
         
         logger.info(f"查询歌曲: {len(songs)} 首")
         

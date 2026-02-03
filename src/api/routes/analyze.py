@@ -3,11 +3,11 @@
 """
 import logging
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 
 from src.utils.analyze import analyze_distribution, analyze_combinations, analyze_by_region, analyze_quality
-from src.core.database import connect_sem_db
+from src.core.database import sem_db_context
 from src.utils.logger import setup_logger
 
 logger = setup_logger("api_analyze", "api.log", level=logging.INFO)
@@ -55,24 +55,22 @@ async def get_distribution(field: str):
         if field not in valid_fields:
             raise HTTPException(status_code=400, detail=f"无效的字段，可用字段: {', '.join(valid_fields)}")
         
-        sem_conn = connect_sem_db()
-        cursor = sem_conn.execute(f"""
-            SELECT {field}, COUNT(*) as count,
-                   ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM music_semantic), 2) as percentage
-            FROM music_semantic
-            GROUP BY {field}
-            ORDER BY count DESC
-        """)
-        
-        distribution = []
-        for row in cursor:
-            distribution.append({
-                "label": row[0] if row[0] else "(空值)",
-                "count": row[1],
-                "percentage": row[2]
-            })
-        
-        sem_conn.close()
+        with sem_db_context() as sem_conn:
+            cursor = sem_conn.execute(f"""
+                SELECT {field}, COUNT(*) as count,
+                       ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM music_semantic), 2) as percentage
+                FROM music_semantic
+                GROUP BY {field}
+                ORDER BY count DESC
+            """)
+            
+            distribution = []
+            for row in cursor:
+                distribution.append({
+                    "label": row[0] if row[0] else "(空值)",
+                    "count": row[1],
+                    "percentage": row[2]
+                })
         
         logger.info(f"获取 {field} 分布分析，共 {len(distribution)} 个标签")
         
@@ -95,28 +93,26 @@ async def get_combinations():
     获取最常见的 Mood + Energy 组合
     """
     try:
-        sem_conn = connect_sem_db()
-        cursor = sem_conn.execute("""
-            SELECT mood, energy, COUNT(*) as count,
-                   ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM music_semantic), 2) as pct
-            FROM music_semantic
-            GROUP BY mood, energy
-            ORDER BY count DESC
-            LIMIT 15
-        """)
-        
-        combinations = []
-        for row in cursor:
-            combinations.append({
-                "mood": row[0],
-                "energy": row[1],
-                "count": row[2],
-                "percentage": row[3]
-            })
-        
-        sem_conn.close()
-        
-        logger.info(f"获取组合分析，共 {len(combinations)} 个组合")
+        with sem_db_context() as sem_conn:
+            cursor = sem_conn.execute("""
+                SELECT mood, energy, COUNT(*) as count,
+                       ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM music_semantic), 2) as pct
+                FROM music_semantic
+                GROUP BY mood, energy
+                ORDER BY count DESC
+                LIMIT 15
+            """)
+            
+            combinations = []
+            for row in cursor:
+                combinations.append({
+                    "mood": row[0],
+                    "energy": row[1],
+                    "count": row[2],
+                    "percentage": row[3]
+                })
+            
+            logger.info(f"获取组合分析，共 {len(combinations)} 个组合")
         
         return CombinationResponse(combinations=combinations)
         
@@ -131,19 +127,18 @@ async def get_region_genre():
     获取各地区的流派分布
     """
     try:
-        sem_conn = connect_sem_db()
-        
-        # 获取所有地区
-        regions_cursor = sem_conn.execute("SELECT DISTINCT region FROM music_semantic WHERE region != 'None'")
-        regions = [row[0] for row in regions_cursor.fetchall()]
-        
-        result = {}
-        for region in regions:
-            cursor = sem_conn.execute("""
-                SELECT genre, COUNT(*) as count
-                FROM music_semantic
-                WHERE region = ? AND genre != 'None'
-                GROUP BY genre
+        with sem_db_context() as sem_conn:
+            # 获取所有地区
+            regions_cursor = sem_conn.execute("SELECT DISTINCT region FROM music_semantic WHERE region != 'None'")
+            regions = [row[0] for row in regions_cursor.fetchall()]
+            
+            result = {}
+            for region in regions:
+                cursor = sem_conn.execute("""
+                    SELECT genre, COUNT(*) as count
+                    FROM music_semantic
+                    WHERE region = ? AND genre != 'None'
+                    GROUP BY genre
                 ORDER BY count DESC
                 LIMIT 5
             """, (region,))
@@ -156,8 +151,6 @@ async def get_region_genre():
                 })
             
             result[region] = genres
-        
-        sem_conn.close()
         
         logger.info(f"获取地区流派分析，共 {len(result)} 个地区")
         
@@ -174,30 +167,27 @@ async def get_quality():
     获取数据质量分析
     """
     try:
-        sem_conn = connect_sem_db()
-        
-        # 总数
-        total = sem_conn.execute("SELECT COUNT(*) FROM music_semantic").fetchone()[0]
-        
-        # 平均置信度
-        avg_confidence = sem_conn.execute("SELECT AVG(confidence) FROM music_semantic").fetchone()[0]
-        avg_confidence = round(avg_confidence, 2) if avg_confidence else 0.0
-        
-        # 低置信度歌曲
-        low_confidence = sem_conn.execute("SELECT COUNT(*) FROM music_semantic WHERE confidence < 0.5").fetchone()[0]
-        low_confidence_pct = round(low_confidence * 100.0 / total, 2) if total > 0 else 0.0
-        
-        # None 值统计
-        none_stats = {}
-        for field in ['mood', 'energy', 'scene', 'region', 'subculture', 'genre']:
-            none_count = sem_conn.execute(f"SELECT COUNT(*) FROM music_semantic WHERE {field} = 'None'").fetchone()[0]
-            none_pct = round(none_count * 100.0 / total, 2) if total > 0 else 0.0
-            none_stats[field] = {
-                "count": none_count,
-                "percentage": none_pct
-            }
-        
-        sem_conn.close()
+        with sem_db_context() as sem_conn:
+            # 总数
+            total = sem_conn.execute("SELECT COUNT(*) FROM music_semantic").fetchone()[0]
+            
+            # 平均置信度
+            avg_confidence = sem_conn.execute("SELECT AVG(confidence) FROM music_semantic").fetchone()[0]
+            avg_confidence = round(avg_confidence, 2) if avg_confidence else 0.0
+            
+            # 低置信度歌曲
+            low_confidence = sem_conn.execute("SELECT COUNT(*) FROM music_semantic WHERE confidence < 0.5").fetchone()[0]
+            low_confidence_pct = round(low_confidence * 100.0 / total, 2) if total > 0 else 0.0
+            
+            # None 值统计
+            none_stats = {}
+            for field in ['mood', 'energy', 'scene', 'region', 'subculture', 'genre']:
+                none_count = sem_conn.execute(f"SELECT COUNT(*) FROM music_semantic WHERE {field} = 'None'").fetchone()[0]
+                none_pct = round(none_count * 100.0 / total, 2) if total > 0 else 0.0
+                none_stats[field] = {
+                    "count": none_count,
+                    "percentage": none_pct
+                }
         
         logger.info("获取数据质量分析")
         
@@ -220,23 +210,20 @@ async def get_summary():
     获取数据概览
     """
     try:
-        sem_conn = connect_sem_db()
-        
-        # 总数
-        total = sem_conn.execute("SELECT COUNT(*) FROM music_semantic").fetchone()[0]
-        
-        # 各字段唯一值数量
-        unique_counts = {}
-        for field in ['mood', 'energy', 'genre', 'region', 'scene', 'subculture']:
-            count = sem_conn.execute(f"SELECT COUNT(DISTINCT {field}) FROM music_semantic WHERE {field} != 'None'").fetchone()[0]
-            unique_counts[field] = count
-        
-        # 最新更新时间
-        latest = sem_conn.execute("SELECT MAX(created_at) FROM music_semantic").fetchone()[0]
-        
-        sem_conn.close()
-        
-        logger.info("获取数据概览")
+        with sem_db_context() as sem_conn:
+            # 总数
+            total = sem_conn.execute("SELECT COUNT(*) FROM music_semantic").fetchone()[0]
+            
+            # 各字段唯一值数量
+            unique_counts = {}
+            for field in ['mood', 'energy', 'genre', 'region', 'scene', 'subculture']:
+                count = sem_conn.execute(f"SELECT COUNT(DISTINCT {field}) FROM music_semantic WHERE {field} != 'None'").fetchone()[0]
+                unique_counts[field] = count
+            
+            # 最新更新时间
+            latest = sem_conn.execute("SELECT MAX(created_at) FROM music_semantic").fetchone()[0]
+            
+            logger.info("获取数据概览")
         
         return {
             "total_songs": total,
@@ -255,59 +242,56 @@ async def get_stats():
     获取整体统计数据（前端专用）
     """
     try:
-        sem_conn = connect_sem_db()
-        
-        # 总歌曲数
-        total_songs = sem_conn.execute("SELECT COUNT(*) FROM music_semantic").fetchone()[0]
-        
-        # 已标签歌曲数
-        tagged_songs = sem_conn.execute("SELECT COUNT(*) FROM music_semantic WHERE mood IS NOT NULL AND mood != 'None'").fetchone()[0]
-        
-        # 未标签歌曲数
-        untagged_songs = total_songs - tagged_songs
-        
-        # 标签覆盖率
-        tag_coverage = (tagged_songs / total_songs * 100) if total_songs > 0 else 0
-        
-        # 情绪分布
-        mood_dist = sem_conn.execute("""
-            SELECT mood, COUNT(*) as count
-            FROM music_semantic
-            WHERE mood IS NOT NULL AND mood != 'None'
-            GROUP BY mood
-        """).fetchall()
-        mood_distribution = {row[0]: row[1] for row in mood_dist}
-        
-        # 能量分布
-        energy_dist = sem_conn.execute("""
-            SELECT energy, COUNT(*) as count
-            FROM music_semantic
-            WHERE energy IS NOT NULL AND energy != 'None'
-            GROUP BY energy
-        """).fetchall()
-        energy_distribution = {row[0]: row[1] for row in energy_dist}
-        
-        # 流派分布
-        genre_dist = sem_conn.execute("""
-            SELECT genre, COUNT(*) as count
-            FROM music_semantic
-            WHERE genre IS NOT NULL AND genre != 'None'
-            GROUP BY genre
-        """).fetchall()
-        genre_distribution = {row[0]: row[1] for row in genre_dist}
-        
-        # 地区分布
-        region_dist = sem_conn.execute("""
-            SELECT region, COUNT(*) as count
-            FROM music_semantic
-            WHERE region IS NOT NULL AND region != 'None'
-            GROUP BY region
-        """).fetchall()
-        region_distribution = {row[0]: row[1] for row in region_dist}
-        
-        sem_conn.close()
-        
-        logger.info("获取整体统计数据")
+        with sem_db_context() as sem_conn:
+            # 总歌曲数
+            total_songs = sem_conn.execute("SELECT COUNT(*) FROM music_semantic").fetchone()[0]
+            
+            # 已标签歌曲数
+            tagged_songs = sem_conn.execute("SELECT COUNT(*) FROM music_semantic WHERE mood IS NOT NULL AND mood != 'None'").fetchone()[0]
+            
+            # 未标签歌曲数
+            untagged_songs = total_songs - tagged_songs
+            
+            # 标签覆盖率
+            tag_coverage = (tagged_songs / total_songs * 100) if total_songs > 0 else 0
+            
+            # 情绪分布
+            mood_dist = sem_conn.execute("""
+                SELECT mood, COUNT(*) as count
+                FROM music_semantic
+                WHERE mood IS NOT NULL AND mood != 'None'
+                GROUP BY mood
+            """).fetchall()
+            mood_distribution = {row[0]: row[1] for row in mood_dist}
+            
+            # 能量分布
+            energy_dist = sem_conn.execute("""
+                SELECT energy, COUNT(*) as count
+                FROM music_semantic
+                WHERE energy IS NOT NULL AND energy != 'None'
+                GROUP BY energy
+            """).fetchall()
+            energy_distribution = {row[0]: row[1] for row in energy_dist}
+            
+            # 流派分布
+            genre_dist = sem_conn.execute("""
+                SELECT genre, COUNT(*) as count
+                FROM music_semantic
+                WHERE genre IS NOT NULL AND genre != 'None'
+                GROUP BY genre
+            """).fetchall()
+            genre_distribution = {row[0]: row[1] for row in genre_dist}
+            
+            # 地区分布
+            region_dist = sem_conn.execute("""
+                SELECT region, COUNT(*) as count
+                FROM music_semantic
+                WHERE region IS NOT NULL AND region != 'None'
+                GROUP BY region
+            """).fetchall()
+            region_distribution = {row[0]: row[1] for row in region_dist}
+            
+            logger.info("获取整体统计数据")
         
         return {
             "success": True,
