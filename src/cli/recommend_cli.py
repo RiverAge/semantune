@@ -2,6 +2,7 @@
 推荐 CLI 命令
 """
 
+import logging
 from src.services.service_factory import ServiceFactory
 from src.core.database import nav_db_context
 from src.repositories.user_repository import UserRepository

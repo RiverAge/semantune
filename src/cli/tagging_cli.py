@@ -2,6 +2,7 @@
 标签生成 CLI 命令
 """
 
+import logging
 from src.services.service_factory import ServiceFactory
 from src.utils.logger import setup_logger
 

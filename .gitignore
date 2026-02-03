@@ -38,7 +38,7 @@ semantic_processing.log
 .env
 
 # AI Agent Configuration
-.ai-agent-config
+AGENTS.md
 
 # Data
 data/*.db
