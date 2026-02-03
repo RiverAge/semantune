@@ -125,16 +125,30 @@ async def get_recommendations_get(
                     break
 
             if not user_id:
+                logger.warning(f"用户 {username} 不存在")
                 return {
                     "success": False,
-                    "error": f"用户 {username} 不存在"
+                    "error": {
+                        "message": f"用户 {username} 不存在",
+                        "type": "user_not_found"
+                    }
                 }
+
+            logger.info(f"找到用户 ID: {user_id}")
 
             # 获取推荐
             recommend_service = ServiceFactory.create_recommend_service(nav_conn, sem_conn)
             recommendations = recommend_service.recommend(user_id=user_id, limit=limit)
+            logger.info(f"生成 {len(recommendations)} 条推荐")
 
-            logger.info(f"获取推荐: {len(recommendations)} 首")
+            # 添加 reason 字段（前端需要）
+            for rec in recommendations:
+                similarity = rec.get('similarity', 0)
+                mood = rec.get('mood', '未知')
+                genre = rec.get('genre', '未知')
+                rec['reason'] = f"基于您的偏好推荐，相似度 {similarity:.2f}，{mood}风格，{genre}类型"
+
+            logger.info(f"获取推荐成功: {len(recommendations)} 首")
 
             return {
                 "success": True,
@@ -142,7 +156,7 @@ async def get_recommendations_get(
             }
 
     except Exception as e:
-        logger.error(f"获取推荐失败: {e}")
+        logger.error(f"获取推荐失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -166,7 +180,10 @@ async def get_user_profile(username: str):
             if not user_id:
                 return {
                     "success": False,
-                    "error": f"用户 {username} 不存在"
+                    "error": {
+                        "message": f"用户 {username} 不存在",
+                        "type": "user_not_found"
+                    }
                 }
 
             # 获取用户画像

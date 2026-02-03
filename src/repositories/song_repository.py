@@ -129,6 +129,8 @@ class SongRepository:
         for file_id in file_ids:
             if file_id in nav_songs:
                 song = nav_songs[file_id].copy()
+                # 确保 file_id 字段存在（与 id 相同）
+                song['file_id'] = file_id
                 if file_id in sem_tags:
                     song.update(sem_tags[file_id])
                 else:

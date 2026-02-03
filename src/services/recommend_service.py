@@ -59,9 +59,10 @@ class RecommendService:
         """
         # 1. 构建用户画像
         user_profile = self.profile_service.build_user_profile(user_id)
+        profile = user_profile.get('profile', {})
 
-        # 2. 获取用户歌曲（用于过滤）
-        user_songs = self.user_repo.get_user_songs(user_id)
+        # 2. 获取用户歌曲（用于过滤），转换为 set 以提高查找速度
+        user_songs = set(self.user_repo.get_user_songs(user_id))
 
         # 3. 获取所有候选歌曲
         all_songs = self.sem_repo.get_all_songs()
@@ -69,7 +70,7 @@ class RecommendService:
         # 4. 计算每首歌的相似度
         candidates = []
         for song in all_songs:
-            # 过滤用户已听过的歌曲
+            # 过滤用户已听过的歌曲（使用 set 查找，O(1) 复杂度）
             if filter_recent and song['file_id'] in user_songs:
                 continue
 
@@ -81,9 +82,7 @@ class RecommendService:
                 'region': song.get('region')
             }
 
-            score = self.similarity_calculator.calculate_similarity(
-                song_tags, user_profile.get('profile', {})
-            )
+            score = self.similarity_calculator.calculate_similarity(song_tags, profile)
 
             # 添加随机扰动
             score = self.similarity_calculator.apply_randomness(score)
@@ -111,11 +110,16 @@ class RecommendService:
         file_ids = [r['file_id'] for r in recommendations]
         full_songs = self.song_repo.get_songs_with_tags(file_ids)
 
-        # 合并相似度分数
-        song_map = {s['id']: s for s in full_songs}
+        # 合并相似度分数 - 使用 file_id 作为键
+        song_map = {s['file_id']: s for s in full_songs}
         for rec in recommendations:
             if rec['file_id'] in song_map:
                 rec.update(song_map[rec['file_id']])
+            else:
+                # 如果没有找到完整信息，确保至少有基本字段
+                rec.setdefault('mood', '未知')
+                rec.setdefault('energy', '未知')
+                rec.setdefault('genre', '未知')
 
         return recommendations
 

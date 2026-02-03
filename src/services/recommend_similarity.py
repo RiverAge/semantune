@@ -12,6 +12,12 @@ from config.constants import get_allowed_labels
 class SimilarityCalculator:
     """相似度计算器"""
 
+    def __init__(self):
+        """初始化相似度计算器，缓存配置"""
+        self._allowed_labels = get_allowed_labels()
+        self._tag_weights = get_recommend_config().get('tag_weights', {})
+        self._algorithm_config = get_algorithm_config()
+
     def calculate_similarity(
         self,
         song_tags: Dict[str, str],
@@ -27,9 +33,8 @@ class SimilarityCalculator:
         Returns:
             归一化后的相似度分数，范围 [0, 1]
         """
-        recommend_config = get_recommend_config()
-        tag_weights = recommend_config.get('tag_weights', {})
-        allowed_labels = get_allowed_labels()
+        tag_weights = self._tag_weights
+        allowed_labels = self._allowed_labels
 
         # 分别计算各维度的匹配度
         mood_match = 0.0
@@ -85,8 +90,7 @@ class SimilarityCalculator:
         Returns:
             应用随机扰动后的分数
         """
-        algorithm_config = get_algorithm_config()
-        randomness = algorithm_config.get('randomness', 0.1)
+        randomness = self._algorithm_config.get('randomness', 0.1)
         if randomness > 0:
             score *= (1 + random.uniform(-randomness, randomness))
         return score

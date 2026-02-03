@@ -20,19 +20,29 @@ export default function Recommend() {
     try {
       setLoading(true);
       setError(null);
-      const [recResponse, profileResponse] = await Promise.all([
-        recommendApi.getRecommendationsByUsername(username, limit),
-        recommendApi.getUserProfile(username),
-      ]);
+      
+      // 分别处理两个请求，避免一个失败导致另一个也失败
+      try {
+        const recResponse = await recommendApi.getRecommendationsByUsername(username, limit);
 
-      if (recResponse.success && recResponse.data) {
-        setRecommendations(recResponse.data);
+        if (recResponse.success && recResponse.data) {
+          setRecommendations(recResponse.data);
+        } else {
+          setError(recResponse.error || '获取推荐失败');
+        }
+      } catch (recErr) {
+        setError(recErr instanceof Error ? recErr.message : '获取推荐失败');
       }
-      if (profileResponse.success && profileResponse.data) {
-        setUserProfile(profileResponse.data);
+
+      try {
+        const profileResponse = await recommendApi.getUserProfile(username);
+
+        if (profileResponse.success && profileResponse.data) {
+          setUserProfile(profileResponse.data);
+        }
+      } catch (profileErr) {
+        // 用户画像失败不影响推荐显示
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '获取推荐失败');
     } finally {
       setLoading(false);
     }
@@ -183,23 +193,31 @@ export default function Recommend() {
                     </div>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
-                      {song.mood}
-                    </span>
-                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
-                      {song.energy}
-                    </span>
-                    <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
-                      {song.genre}
-                    </span>
+                    {song.mood && (
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
+                        {song.mood}
+                      </span>
+                    )}
+                    {song.energy && (
+                      <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+                        {song.energy}
+                      </span>
+                    )}
+                    {song.genre && (
+                      <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
+                        {song.genre}
+                      </span>
+                    )}
                   </div>
-                  <p className="mt-2 text-sm text-gray-500">{song.reason}</p>
+                  {song.reason && (
+                    <p className="mt-2 text-sm text-gray-500">{song.reason}</p>
+                  )}
                 </div>
                 <div className="text-right">
                   <div className="flex items-center text-primary-600">
                     <Music className="h-4 w-4 mr-1" />
                     <span className="font-medium">
-                      {(song.similarity * 100).toFixed(1)}%
+                      {song.similarity ? (song.similarity * 100).toFixed(1) + '%' : '-'}
                     </span>
                   </div>
                   <p className="text-xs text-gray-500 mt-1">相似度</p>

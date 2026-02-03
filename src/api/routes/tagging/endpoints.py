@@ -13,13 +13,13 @@ from src.repositories.navidrome_repository import NavidromeRepository
 from src.repositories.semantic_repository import SemanticRepository
 from src.services.service_factory import ServiceFactory
 from src.utils.logger import setup_logger
-from .tagging_sse import (
+from ..tagging_sse import (
     event_generator,
     get_tagging_progress,
     update_tagging_progress,
     broadcast_progress
 )
-from .tagging_tasks import run_tagging_task, process_batch_tags
+from ..tagging_tasks import run_tagging_task, process_batch_tags
 from .models import TagRequest, TagProgressResponse, BatchTagRequest
 
 logger = setup_logger("api", level=logging.INFO)

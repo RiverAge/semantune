@@ -35,7 +35,10 @@ api.interceptors.request.use(
 
 // 响应拦截器
 api.interceptors.response.use(
-  (response) => response.data,
+  (response) => {
+    // 返回响应数据，类型为 ApiResponse<T>
+    return response.data;
+  },
   (error) => {
     // 后端返回的错误格式: { success: false, error: { message: string, type: string, details: object } }
     const errorData = error.response?.data?.error;
@@ -56,18 +59,18 @@ api.interceptors.response.use(
 // 推荐相关 API
 export const recommendApi = {
   // 获取推荐列表（POST 方法，使用 user_id）
-  getRecommendations: async (params: RecommendRequest) => {
-    return await api.post<ApiResponse<{ user_id: string; recommendations: Recommendation[]; stats: any }>>('/recommend', params);
+  getRecommendations: async (params: RecommendRequest): Promise<ApiResponse<{ user_id: string; recommendations: Recommendation[]; stats: any }>> => {
+    return await api.post<ApiResponse<{ user_id: string; recommendations: Recommendation[]; stats: any }>>('/recommend', params) as any;
   },
 
   // 获取推荐列表（GET 方法，使用 username）
-  getRecommendationsByUsername: async (username: string, limit: number = 30) => {
-    return await api.get<ApiResponse<Recommendation[]>>('/recommend/list', { params: { username, limit } });
+  getRecommendationsByUsername: async (username: string, limit: number = 30): Promise<ApiResponse<Recommendation[]>> => {
+    return await api.get<ApiResponse<Recommendation[]>>('/recommend/list', { params: { username, limit } }) as any;
   },
 
   // 获取用户画像
-  getUserProfile: async (username: string) => {
-    return await api.get<ApiResponse<UserStats>>(`/recommend/profile/${username}`);
+  getUserProfile: async (username: string): Promise<ApiResponse<UserStats>> => {
+    return await api.get<ApiResponse<UserStats>>(`/recommend/profile/${username}`) as any;
   },
 };
 
