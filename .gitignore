@@ -37,6 +37,9 @@ semantic_processing.log
 # Environment variables
 .env
 
+# AI Agent Configuration
+.ai-agent-config
+
 # Data
 data/*.db
 data/*.db-shm

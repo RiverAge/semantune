@@ -18,7 +18,7 @@ export default function Analyze() {
     try {
       const response = await analyzeApi.getUsers();
       if (response.success && response.data) {
-        setUsers(response.data);
+        setUsers(response.data.users);
       }
     } catch (err) {
       console.error('加载用户列表失败:', err);

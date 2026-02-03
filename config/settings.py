@@ -13,7 +13,7 @@ load_dotenv()
 BASE_DIR = Path(__file__).parent.parent
 
 # 项目版本
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 
 # 数据库路径
 NAV_DB = str(BASE_DIR / "data" / "navidrome.db")
@@ -106,6 +106,7 @@ ALGORITHM_CONFIG = {
     "exploitation_pool_multiplier": 3,  # 利用型候选池倍数
     "exploration_pool_start": 0.25,     # 探索型池起始位置（比例）
     "exploration_pool_end": 0.5,        # 探索型池结束位置（比例）
+    "randomness": 0.1,                  # 随机扰动系数（0-1之间）
 }
 
 # CORS 配置

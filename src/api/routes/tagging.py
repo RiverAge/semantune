@@ -8,9 +8,11 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing import Optional, List
 
-from src.tagging.worker import nim_classify, process_all_songs
 from src.core.database import nav_db_context, sem_db_context, dbs_context
 from src.core.schema import init_semantic_db
+from src.repositories.navidrome_repository import NavidromeRepository
+from src.repositories.semantic_repository import SemanticRepository
+from src.services.service_factory import ServiceFactory
 from src.utils.logger import setup_logger
 
 logger = setup_logger("api", level=logging.INFO)
@@ -73,30 +75,23 @@ async def broadcast_progress():
 async def generate_tag(request: TagRequest):
     """
     为单首歌曲生成语义标签
-    
+
     - **title**: 歌曲标题
     - **artist**: 歌手名称
     - **album**: 专辑名称（可选）
     """
     try:
-        tags, raw_response = nim_classify(request.title, request.artist, request.album)
-        
-        if not tags:
-            raise HTTPException(status_code=500, detail="标签生成失败")
-        
-        logger.info(f"为 {request.artist} - {request.title} 生成标签成功")
-        
-        return {
-            "success": True,
-            "data": {
-                "title": request.title,
-                "artist": request.artist,
-                "album": request.album,
-                "tags": tags,
-                "raw_response": raw_response
+        with dbs_context() as (nav_conn, sem_conn):
+            tagging_service = ServiceFactory.create_tagging_service(nav_conn, sem_conn)
+            result = tagging_service.generate_tag(request.title, request.artist, request.album)
+
+            logger.info(f"为 {request.artist} - {request.title} 生成标签成功")
+
+            return {
+                "success": True,
+                "data": result
             }
-        }
-        
+
     except Exception as e:
         logger.error(f"标签生成失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -106,7 +101,7 @@ async def generate_tag(request: TagRequest):
 async def batch_generate_tags(request: BatchTagRequest, background_tasks: BackgroundTasks):
     """
     批量生成语义标签（后台任务）
-    
+
     - **songs**: 歌曲列表，每首歌曲包含 title, artist, album
     """
     try:
@@ -114,18 +109,18 @@ async def batch_generate_tags(request: BatchTagRequest, background_tasks: Backgr
         tagging_progress["total"] = len(request.songs)
         tagging_progress["processed"] = 0
         tagging_progress["status"] = "processing"
-        
+
         # 添加后台任务
         background_tasks.add_task(process_batch_tags, request.songs)
-        
+
         logger.info(f"开始批量生成标签，共 {len(request.songs)} 首歌曲")
-        
+
         return {
             "message": "批量标签生成任务已启动",
             "total": len(request.songs),
             "status": "processing"
         }
-        
+
     except Exception as e:
         logger.error(f"批量标签生成失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -151,34 +146,35 @@ async def sync_tags_to_db():
     """
     try:
         # 初始化语义数据库
-        init_semantic_db()
-        
+        with sem_db_context() as sem_conn:
+            init_semantic_db(sem_conn)
+
         # 连接数据库
-        with nav_db_context() as nav_conn, sem_db_context() as sem_conn:
+        with dbs_context() as (nav_conn, sem_conn):
+            nav_repo = NavidromeRepository(nav_conn)
+            sem_repo = SemanticRepository(sem_conn)
+
             # 获取所有歌曲
-            cursor = nav_conn.execute("""
-                SELECT id, title, album_artist, album
-                FROM media_file
-                WHERE media_file_type = 'music'
-            """)
-            songs = cursor.fetchall()
-            
+            songs = nav_repo.get_all_songs()
+
             # 获取已处理的歌曲ID
+            tagged_ids = set()
             cursor = sem_conn.execute("SELECT file_id FROM music_semantic")
-            processed_ids = {row[0] for row in cursor.fetchall()}
-            
+            for row in cursor.fetchall():
+                tagged_ids.add(row[0])
+
             # 筛选未处理的歌曲
-            new_songs = [song for song in songs if song[0] not in processed_ids]
-        
+            new_songs = [s for s in songs if s['id'] not in tagged_ids]
+
         logger.info(f"找到 {len(new_songs)} 首新歌曲需要生成标签")
-        
+
         return {
             "message": "同步任务准备完成",
             "total_songs": len(songs),
-            "processed_songs": len(processed_ids),
+            "processed_songs": len(tagged_ids),
             "new_songs": len(new_songs)
         }
-        
+
     except Exception as e:
         logger.error(f"同步标签失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -189,16 +185,21 @@ async def process_batch_tags(songs: List[dict]):
     后台处理批量标签生成
     """
     try:
-        with sem_db_context() as sem_conn:
+        with dbs_context() as (nav_conn, sem_conn):
             # 初始化语义数据库
             init_semantic_db(sem_conn)
-            
+
             for idx, song in enumerate(songs):
                 try:
                     # 生成标签
-                    tags, _ = nim_classify(song["title"], song["artist"], song.get("album", ""))
-                    
-                    if tags:
+                    tagging_service = ServiceFactory.create_tagging_service(nav_conn, sem_conn)
+                    result = tagging_service.generate_tag(
+                        song["title"],
+                        song["artist"],
+                        song.get("album", "")
+                    )
+
+                    if result:
                         # 保存到数据库
                         sem_conn.execute("""
                             INSERT OR REPLACE INTO music_semantic
@@ -209,26 +210,26 @@ async def process_batch_tags(songs: List[dict]):
                             song["title"],
                             song["artist"],
                             song.get("album", ""),
-                            tags.get("mood"),
-                            tags.get("energy"),
-                            tags.get("genre"),
-                            tags.get("region"),
-                            tags.get("subculture"),
-                            tags.get("scene"),
-                            tags.get("confidence", 0.0)
+                            result['tags'].get("mood"),
+                            result['tags'].get("energy"),
+                            result['tags'].get("genre"),
+                            result['tags'].get("region"),
+                            result['tags'].get("subculture"),
+                            result['tags'].get("scene"),
+                            result['tags'].get("confidence", 0.0)
                         ))
                         sem_conn.commit()
-                    
+
                     # 更新进度
                     tagging_progress["processed"] += 1
-                    
+
                 except Exception as e:
                     logger.error(f"处理歌曲 {song['artist']} - {song['title']} 失败: {e}")
                     continue
-            
+
             tagging_progress["status"] = "completed"
             logger.info(f"批量标签生成完成，共处理 {len(songs)} 首歌曲")
-            
+
     except Exception as e:
         logger.error(f"批量标签生成失败: {e}")
         tagging_progress["status"] = "failed"
@@ -240,30 +241,28 @@ async def get_tagging_status():
     获取标签生成状态（前端专用）
     """
     try:
-        with nav_db_context() as nav_conn, sem_db_context() as sem_conn:
+        with dbs_context() as (nav_conn, sem_conn):
             # 初始化语义数据库
             init_semantic_db(sem_conn)
-            
+
+            nav_repo = NavidromeRepository(nav_conn)
+            sem_repo = SemanticRepository(sem_conn)
+
             # 获取 Navidrome 中的所有歌曲
-            nav_songs = nav_conn.execute("""
-                SELECT id, title, album_artist
-                FROM media_file
-                ORDER BY id
-            """).fetchall()
-            total = len(nav_songs)
-            
+            total = nav_repo.get_total_count()
+
             # 获取已标签的歌曲
-            tagged = sem_conn.execute("SELECT COUNT(*) FROM music_semantic").fetchone()[0]
-            
+            tagged = sem_repo.get_total_count()
+
             # 获取待处理的歌曲
             pending = total - tagged
-            
+
             # 获取失败的歌曲（这里简化处理，实际可能需要更复杂的逻辑）
             failed = 0
-            
+
             # 计算进度
             progress = (tagged / total * 100) if total > 0 else 0
-        
+
         return {
             "success": True,
             "data": {
@@ -275,7 +274,7 @@ async def get_tagging_status():
                 "task_status": tagging_progress["status"]  # 返回任务状态
             }
         }
-        
+
     except Exception as e:
         logger.error(f"获取标签生成状态失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -289,30 +288,30 @@ async def preview_tagging(
     预览标签生成（前端专用）
     """
     try:
-        with nav_db_context() as nav_conn:
-            # 获取一些未标签的歌曲
-            songs = nav_conn.execute("""
-                SELECT id, title, album_artist
-                FROM media_file
-                LIMIT ?
-            """, (limit,)).fetchall()
-            
+        with dbs_context() as (nav_conn, sem_conn):
+            nav_repo = NavidromeRepository(nav_conn)
+            songs = nav_repo.get_all_songs()
+
             # 为每首歌生成标签
             previews = []
-            for song in songs:
-                file_id, title, artist = song
+            for song in songs[:limit]:
                 try:
-                    tags = nim_classify(title, artist, "")
+                    tagging_service = ServiceFactory.create_tagging_service(nav_conn, sem_conn)
+                    result = tagging_service.generate_tag(
+                        song['title'],
+                        song['artist'],
+                        song.get('album', '')
+                    )
                     previews.append({
-                        "title": title,
-                        "artist": artist,
-                        "tags": tags
+                        "title": song['title'],
+                        "artist": song['artist'],
+                        "tags": result['tags']
                     })
                 except Exception as e:
-                    logger.error(f"生成标签失败: {title} - {artist}: {e}")
-        
+                    logger.error(f"生成标签失败: {song['title']} - {song['artist']}: {e}")
+
         return {"success": True, "data": previews}
-        
+
     except Exception as e:
         logger.error(f"预览标签生成失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -326,32 +325,32 @@ async def stream_progress():
     async def event_generator():
         queue = asyncio.Queue()
         sse_clients.append(queue)
-        
+
         try:
             # 发送初始状态
             yield f"data: {tagging_progress}\n\n"
-            
+
             # 如果任务已经完成，立即发送 DONE
             if tagging_progress["status"] in ["completed", "failed"]:
                 yield "data: [DONE]\n\n"
                 return
-            
+
             while True:
                 # 等待进度更新
                 message = await queue.get()
                 yield message
-                
+
                 # 如果任务完成，关闭连接
                 if tagging_progress["status"] in ["completed", "failed"]:
                     yield "data: [DONE]\n\n"
                     break
-                    
+
         except asyncio.CancelledError:
             pass
         finally:
             if queue in sse_clients:
                 sse_clients.remove(queue)
-    
+
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
@@ -375,25 +374,25 @@ async def start_tagging(background_tasks: BackgroundTasks):
                 "success": False,
                 "message": "标签生成任务正在运行中"
             }
-        
+
         # 初始化进度
         tagging_progress["total"] = 0
         tagging_progress["processed"] = 0
         tagging_progress["status"] = "processing"
-        
+
         # 广播初始状态
         await broadcast_progress()
-        
+
         # 添加后台任务
         background_tasks.add_task(run_tagging_task)
-        
+
         logger.info("标签生成任务已启动")
-        
+
         return {
             "success": True,
             "message": "标签生成任务已启动"
         }
-        
+
     except Exception as e:
         logger.error(f"启动标签生成失败: {e}")
         tagging_progress["status"] = "failed"
@@ -412,18 +411,18 @@ async def stop_tagging():
                 "success": False,
                 "message": "没有正在运行的任务"
             }
-        
+
         # 设置状态为已中止
         tagging_progress["status"] = "stopped"
         await broadcast_progress()
-        
+
         logger.info("标签生成任务已中止")
-        
+
         return {
             "success": True,
             "message": "标签生成任务已中止"
         }
-        
+
     except Exception as e:
         logger.error(f"中止标签生成失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -433,7 +432,7 @@ async def stop_tagging():
 async def get_tagging_history(limit: int = 20, offset: int = 0):
     """
     获取标签生成历史记录
-    
+
     - **limit**: 每页数量，默认 20
     - **offset**: 偏移量，默认 0
     """
@@ -447,31 +446,31 @@ async def get_tagging_history(limit: int = 20, offset: int = 0):
                 ORDER BY updated_at DESC
                 LIMIT ? OFFSET ?
             """, (limit, offset))
-            
+
             rows = cursor.fetchall()
-            
+
             # 获取总数
             total = sem_conn.execute("SELECT COUNT(*) FROM music_semantic").fetchone()[0]
-            
+
             history = []
-        for row in rows:
-            history.append({
-                "file_id": row[0],
-                "title": row[1],
-                "artist": row[2],
-                "album": row[3],
-                "tags": {
-                    "mood": row[4],
-                    "energy": row[5],
-                    "scene": row[6],
-                    "region": row[7],
-                    "subculture": row[8],
-                    "genre": row[9],
-                    "confidence": row[10]
-                },
-                "updated_at": row[11]
-            })
-        
+            for row in rows:
+                history.append({
+                    "file_id": row[0],
+                    "title": row[1],
+                    "artist": row[2],
+                    "album": row[3],
+                    "tags": {
+                        "mood": row[4],
+                        "energy": row[5],
+                        "scene": row[6],
+                        "region": row[7],
+                        "subculture": row[8],
+                        "genre": row[9],
+                        "confidence": row[10]
+                    },
+                    "updated_at": row[11]
+                })
+
         return {
             "success": True,
             "data": {
@@ -481,7 +480,7 @@ async def get_tagging_history(limit: int = 20, offset: int = 0):
                 "offset": offset
             }
         }
-        
+
     except Exception as e:
         logger.error(f"获取历史记录失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -494,37 +493,42 @@ async def run_tagging_task():
     try:
         with dbs_context() as (nav_conn, sem_conn):
             init_semantic_db(sem_conn)
-            
+
+            nav_repo = NavidromeRepository(nav_conn)
+            sem_repo = SemanticRepository(sem_conn)
+
             # 获取所有歌曲
-            nav_songs = nav_conn.execute("""
-                SELECT id, title, artist, album
-                FROM media_file
-            """).fetchall()
-            
+            nav_songs = nav_repo.get_all_songs()
+
             # 获取已处理的歌曲ID
-            processed_ids = {row['file_id'] for row in sem_conn.execute("SELECT file_id FROM music_semantic").fetchall()}
-            
+            processed_ids = set()
+            cursor = sem_conn.execute("SELECT file_id FROM music_semantic")
+            for row in cursor.fetchall():
+                processed_ids.add(row[0])
+
             # 筛选未处理的歌曲
-            todo_songs = [s for s in nav_songs if str(s['id']) not in processed_ids]
-            
+            todo_songs = [s for s in nav_songs if s['id'] not in processed_ids]
+
             # 更新总数
             tagging_progress["total"] = len(todo_songs)
             await broadcast_progress()
-            
+
             if len(todo_songs) == 0:
                 tagging_progress["status"] = "completed"
                 await broadcast_progress()
                 logger.info("没有需要处理的歌曲")
                 return
-        
+
         # 调用处理函数
-        result = process_all_songs()
-        
+        with dbs_context() as (nav_conn, sem_conn):
+            tagging_service = ServiceFactory.create_tagging_service(nav_conn, sem_conn)
+            result = tagging_service.process_all_songs()
+
         # 更新最终状态
         tagging_progress["status"] = "completed"
         await broadcast_progress()
         logger.info(f"标签生成任务完成: {result}")
-        
+
     except Exception as e:
         logger.error(f"标签生成任务失败: {e}")
         tagging_progress["status"] = "failed"

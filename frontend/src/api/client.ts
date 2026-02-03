@@ -30,7 +30,9 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const message = error.response?.data?.error || error.message || '请求失败';
+    // 后端返回的错误格式: { success: false, error: { message: string, type: string, details: object } }
+    const errorData = error.response?.data?.error;
+    const message = errorData?.message || error.message || '请求失败';
     return Promise.reject(new Error(message));
   }
 );
@@ -151,19 +153,19 @@ export const taggingApi = {
 export const analyzeApi = {
   // 获取整体统计
   getStats: async () => {
-    const response = await api.get<ApiResponse<AnalysisStats>>('/analyze/stats');
+    const response = await api.get<ApiResponse<AnalysisStats>>('/analyze/overview');
     return response.data;
   },
 
   // 获取用户统计
   getUserStats: async (username: string) => {
-    const response = await api.get<ApiResponse<UserStats>>(`/analyze/user/${username}`);
+    const response = await api.get<ApiResponse<UserStats>>(`/recommend/profile/${username}`);
     return response.data;
   },
 
   // 获取所有用户列表
   getUsers: async () => {
-    const response = await api.get<ApiResponse<string[]>>('/analyze/users');
+    const response = await api.get<ApiResponse<{ users: string[] }>>('/recommend/users');
     return response.data;
   },
 };

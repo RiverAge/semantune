@@ -50,13 +50,13 @@ python main.py tag-preview
         choices=['tag', 'recommend', 'query', 'analyze', 'export', 'tag-preview', 'api'],
         help='要执行的命令'
     )
-    
+
     parser.add_argument(
         '--host',
         default='0.0.0.0',
         help='API 服务监听地址（仅用于 api 命令）'
     )
-    
+
     parser.add_argument(
         '--port',
         type=int,
@@ -70,23 +70,23 @@ python main.py tag-preview
 
     if args.command == 'tag':
         logger.info("🏷️  生成语义标签...")
-        from src.tagging.worker import main as tag_main
-        tag_main()
+        from src.cli.tagging_cli import TaggingCLI
+        TaggingCLI.main()
 
     elif args.command == 'recommend':
         logger.info("🎯 生成个性化推荐...")
-        from src.recommend.engine import main as recommend_main
-        recommend_main()
+        from src.cli.recommend_cli import RecommendCLI
+        RecommendCLI.main()
 
     elif args.command == 'query':
         logger.info("🔍 查询歌曲...")
-        from src.query.search import main as query_main
-        query_main()
+        from src.cli.query_cli import QueryCLI
+        QueryCLI.main()
 
     elif args.command == 'analyze':
         logger.info("📊 分析数据...")
-        from src.utils.analyze import main as analyze_main
-        analyze_main()
+        from src.cli.analyze_cli import AnalyzeCLI
+        AnalyzeCLI.main()
 
     elif args.command == 'export':
         logger.info("📦 导出数据...")
@@ -95,9 +95,9 @@ python main.py tag-preview
 
     elif args.command == 'tag-preview':
         logger.info("👁️  预览标签生成...")
-        from src.tagging.preview import main as preview_main
-        preview_main()
-    
+        from src.cli.tagging_cli import TaggingCLI
+        TaggingCLI.preview()
+
     elif args.command == 'api':
         logger.info("🚀 启动 API 服务...")
         import uvicorn
