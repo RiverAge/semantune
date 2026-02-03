@@ -7,6 +7,8 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 
 from src.core.database import nav_db_context, sem_db_context, dbs_context
+from src.core.response import ApiResponse
+from src.core.exceptions import SemantuneException
 from src.repositories.user_repository import UserRepository
 from src.services.service_factory import ServiceFactory
 from src.utils.logger import setup_logger
@@ -75,14 +77,18 @@ async def get_recommendations(request: RecommendRequest):
                 "unique_albums": len(set(r.get('album') for r in recommendations if r.get('album')))
             }
 
-            logger.info(f"用户 {user_id} 请求推荐，返回 {len(recommendations)} 首歌曲")
+            logger.debug(f"用户 {user_id} 请求推荐，返回 {len(recommendations)} 首歌曲")
 
-            return RecommendResponse(
-                user_id=user_id,
-                recommendations=recommendations,
-                stats=stats
+            return ApiResponse.success_response(
+                data=RecommendResponse(
+                    user_id=user_id,
+                    recommendations=recommendations,
+                    stats=stats
+                )
             )
 
+    except SemantuneException as e:
+        raise
     except HTTPException:
         raise
     except Exception as e:

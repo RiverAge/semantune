@@ -6,13 +6,19 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 
+from config.constants import ALLOWED_LABELS
 from src.core.database import sem_db_context
+from src.core.response import ApiResponse
+from src.core.exceptions import SemantuneException
 from src.services.service_factory import ServiceFactory
 from src.utils.logger import setup_logger
 
 logger = setup_logger("api", level=logging.INFO)
 
 router = APIRouter()
+
+# 有效的字段列表
+VALID_FIELDS = list(ALLOWED_LABELS.keys())
 
 
 class DistributionResponse(BaseModel):
@@ -50,19 +56,30 @@ async def get_distribution(field: str):
 
     - **field**: 字段名称
     """
+    # 输入验证
+    if field not in VALID_FIELDS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"无效的字段 '{field}'，可用字段: {', '.join(VALID_FIELDS)}"
+        )
+    
     try:
         with sem_db_context() as sem_conn:
             analyze_service = ServiceFactory.create_analyze_service(sem_conn)
             result = analyze_service.get_distribution(field)
 
-            logger.info(f"获取 {field} 分布分析，共 {len(result['distribution'])} 个标签")
+            logger.debug(f"获取 {field} 分布分析，共 {len(result['distribution'])} 个标签")
 
-            return DistributionResponse(
-                field=result['field'],
-                field_name=result['field_name'],
-                distribution=result['distribution']
+            return ApiResponse.success_response(
+                data=DistributionResponse(
+                    field=result['field'],
+                    field_name=result['field_name'],
+                    distribution=result['distribution']
+                )
             )
 
+    except SemantuneException as e:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -80,10 +97,14 @@ async def get_combinations():
             analyze_service = ServiceFactory.create_analyze_service(sem_conn)
             result = analyze_service.get_combinations()
 
-            logger.info(f"获取组合分析，共 {len(result['combinations'])} 个组合")
+            logger.debug(f"获取组合分析，共 {len(result['combinations'])} 个组合")
 
-            return CombinationResponse(combinations=result['combinations'])
+            return ApiResponse.success_response(
+                data=CombinationResponse(combinations=result['combinations'])
+            )
 
+    except SemantuneException as e:
+        raise
     except Exception as e:
         logger.error(f"组合分析失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -99,10 +120,14 @@ async def get_region_genre():
             analyze_service = ServiceFactory.create_analyze_service(sem_conn)
             result = analyze_service.get_region_genre_distribution()
 
-            logger.info(f"获取地区流派分析，共 {len(result['regions'])} 个地区")
+            logger.debug(f"获取地区流派分析，共 {len(result['regions'])} 个地区")
 
-            return RegionGenreResponse(regions=result['regions'])
+            return ApiResponse.success_response(
+                data=RegionGenreResponse(regions=result['regions'])
+            )
 
+    except SemantuneException as e:
+        raise
     except Exception as e:
         logger.error(f"地区流派分析失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))

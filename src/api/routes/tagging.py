@@ -10,6 +10,8 @@ from typing import Optional, List
 
 from src.core.database import nav_db_context, sem_db_context, dbs_context
 from src.core.schema import init_semantic_db
+from src.core.response import ApiResponse
+from src.core.exceptions import SemantuneException
 from src.repositories.navidrome_repository import NavidromeRepository
 from src.repositories.semantic_repository import SemanticRepository
 from src.services.service_factory import ServiceFactory
@@ -85,13 +87,12 @@ async def generate_tag(request: TagRequest):
             tagging_service = ServiceFactory.create_tagging_service(nav_conn, sem_conn)
             result = tagging_service.generate_tag(request.title, request.artist, request.album)
 
-            logger.info(f"为 {request.artist} - {request.title} 生成标签成功")
+            logger.debug(f"为 {request.artist} - {request.title} 生成标签成功")
 
-            return {
-                "success": True,
-                "data": result
-            }
+            return ApiResponse.success_response(data=result)
 
+    except SemantuneException as e:
+        raise
     except Exception as e:
         logger.error(f"标签生成失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -113,14 +114,18 @@ async def batch_generate_tags(request: BatchTagRequest, background_tasks: Backgr
         # 添加后台任务
         background_tasks.add_task(process_batch_tags, request.songs)
 
-        logger.info(f"开始批量生成标签，共 {len(request.songs)} 首歌曲")
+        logger.debug(f"开始批量生成标签，共 {len(request.songs)} 首歌曲")
 
-        return {
-            "message": "批量标签生成任务已启动",
-            "total": len(request.songs),
-            "status": "processing"
-        }
+        return ApiResponse.success_response(
+            data={
+                "message": "批量标签生成任务已启动",
+                "total": len(request.songs),
+                "status": "processing"
+            }
+        )
 
+    except SemantuneException as e:
+        raise
     except Exception as e:
         logger.error(f"批量标签生成失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -166,15 +171,19 @@ async def sync_tags_to_db():
             # 筛选未处理的歌曲
             new_songs = [s for s in songs if s['id'] not in tagged_ids]
 
-        logger.info(f"找到 {len(new_songs)} 首新歌曲需要生成标签")
+        logger.debug(f"找到 {len(new_songs)} 首新歌曲需要生成标签")
 
-        return {
-            "message": "同步任务准备完成",
-            "total_songs": len(songs),
-            "processed_songs": len(tagged_ids),
-            "new_songs": len(new_songs)
-        }
+        return ApiResponse.success_response(
+            data={
+                "message": "同步任务准备完成",
+                "total_songs": len(songs),
+                "processed_songs": len(tagged_ids),
+                "new_songs": len(new_songs)
+            }
+        )
 
+    except SemantuneException as e:
+        raise
     except Exception as e:
         logger.error(f"同步标签失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -263,9 +272,8 @@ async def get_tagging_status():
             # 计算进度
             progress = (tagged / total * 100) if total > 0 else 0
 
-        return {
-            "success": True,
-            "data": {
+        return ApiResponse.success_response(
+            data={
                 "total": total,
                 "processed": tagged,
                 "pending": pending,
@@ -273,8 +281,10 @@ async def get_tagging_status():
                 "progress": progress,
                 "task_status": tagging_progress["status"]  # 返回任务状态
             }
-        }
+        )
 
+    except SemantuneException as e:
+        raise
     except Exception as e:
         logger.error(f"获取标签生成状态失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -310,8 +320,10 @@ async def preview_tagging(
                 except Exception as e:
                     logger.error(f"生成标签失败: {song['title']} - {song['artist']}: {e}")
 
-        return {"success": True, "data": previews}
+        return ApiResponse.success_response(data=previews)
 
+    except SemantuneException as e:
+        raise
     except Exception as e:
         logger.error(f"预览标签生成失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -370,10 +382,10 @@ async def start_tagging(background_tasks: BackgroundTasks):
     try:
         # 检查是否已经在运行
         if tagging_progress["status"] == "processing":
-            return {
-                "success": False,
-                "message": "标签生成任务正在运行中"
-            }
+            return ApiResponse.error_response(
+                message="标签生成任务正在运行中",
+                error_type="TaskRunning"
+            )
 
         # 初始化进度
         tagging_progress["total"] = 0
@@ -386,13 +398,12 @@ async def start_tagging(background_tasks: BackgroundTasks):
         # 添加后台任务
         background_tasks.add_task(run_tagging_task)
 
-        logger.info("标签生成任务已启动")
+        logger.debug("标签生成任务已启动")
 
-        return {
-            "success": True,
-            "message": "标签生成任务已启动"
-        }
+        return ApiResponse.success_response(message="标签生成任务已启动")
 
+    except SemantuneException as e:
+        raise
     except Exception as e:
         logger.error(f"启动标签生成失败: {e}")
         tagging_progress["status"] = "failed"
@@ -407,22 +418,21 @@ async def stop_tagging():
     """
     try:
         if tagging_progress["status"] != "processing":
-            return {
-                "success": False,
-                "message": "没有正在运行的任务"
-            }
+            return ApiResponse.error_response(
+                message="没有正在运行的任务",
+                error_type="NoRunningTask"
+            )
 
         # 设置状态为已中止
         tagging_progress["status"] = "stopped"
         await broadcast_progress()
 
-        logger.info("标签生成任务已中止")
+        logger.debug("标签生成任务已中止")
 
-        return {
-            "success": True,
-            "message": "标签生成任务已中止"
-        }
+        return ApiResponse.success_response(message="标签生成任务已中止")
 
+    except SemantuneException as e:
+        raise
     except Exception as e:
         logger.error(f"中止标签生成失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -471,16 +481,17 @@ async def get_tagging_history(limit: int = 20, offset: int = 0):
                     "updated_at": row[11]
                 })
 
-        return {
-            "success": True,
-            "data": {
+        return ApiResponse.success_response(
+            data={
                 "items": history,
                 "total": total,
                 "limit": limit,
                 "offset": offset
             }
-        }
+        )
 
+    except SemantuneException as e:
+        raise
     except Exception as e:
         logger.error(f"获取历史记录失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))

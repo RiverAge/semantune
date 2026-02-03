@@ -2,18 +2,21 @@
 FastAPI 主应用文件
 """
 import logging
+import sqlite3
+from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from src.api.routes import recommend, query, tagging, analyze
 from src.utils.logger import setup_logger
-from config.settings import CORS_ORIGINS, VERSION
+from config.settings import CORS_ORIGINS, VERSION, NAV_DB, SEM_DB
 from src.core.exceptions import (
     semantune_exception_handler,
     http_exception_handler,
     general_exception_handler,
     SemantuneException
 )
+from src.core.config_validator import validate_on_startup
 
 logger = setup_logger("api", level=logging.INFO)
 
@@ -59,14 +62,84 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """健康检查"""
-    return {"status": "healthy"}
+    """
+    健康检查
+    
+    检查以下内容：
+    - API 服务状态
+    - Navidrome 数据库连接
+    - 语义数据库连接
+    - 数据库文件是否存在
+    """
+    health_status = {
+        "status": "healthy",
+        "version": VERSION,
+        "checks": {}
+    }
+    
+    # 检查 Navidrome 数据库
+    try:
+        nav_db_path = Path(NAV_DB)
+        if nav_db_path.exists():
+            conn = sqlite3.connect(NAV_DB)
+            conn.execute("SELECT 1")
+            conn.close()
+            health_status["checks"]["navidrome_db"] = {
+                "status": "ok",
+                "path": str(nav_db_path)
+            }
+        else:
+            health_status["status"] = "degraded"
+            health_status["checks"]["navidrome_db"] = {
+                "status": "error",
+                "message": f"数据库文件不存在: {NAV_DB}"
+            }
+    except Exception as e:
+        health_status["status"] = "unhealthy"
+        health_status["checks"]["navidrome_db"] = {
+            "status": "error",
+            "message": str(e)
+        }
+    
+    # 检查语义数据库
+    try:
+        sem_db_path = Path(SEM_DB)
+        if sem_db_path.exists():
+            conn = sqlite3.connect(SEM_DB)
+            conn.execute("SELECT 1")
+            conn.close()
+            health_status["checks"]["semantic_db"] = {
+                "status": "ok",
+                "path": str(sem_db_path)
+            }
+        else:
+            health_status["status"] = "degraded"
+            health_status["checks"]["semantic_db"] = {
+                "status": "error",
+                "message": f"数据库文件不存在: {SEM_DB}"
+            }
+    except Exception as e:
+        health_status["status"] = "unhealthy"
+        health_status["checks"]["semantic_db"] = {
+            "status": "error",
+            "message": str(e)
+        }
+    
+    return health_status
 
 
 @app.on_event("startup")
 async def startup_event():
     """应用启动事件"""
     logger.info("🚀 API 服务启动")
+    
+    # 验证配置
+    try:
+        validate_on_startup()
+        logger.info("✅ 配置验证通过")
+    except Exception as e:
+        logger.error(f"❌ 配置验证失败: {e}")
+        raise
 
 
 @app.on_event("shutdown")

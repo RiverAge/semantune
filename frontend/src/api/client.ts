@@ -33,7 +33,16 @@ api.interceptors.response.use(
     // 后端返回的错误格式: { success: false, error: { message: string, type: string, details: object } }
     const errorData = error.response?.data?.error;
     const message = errorData?.message || error.message || '请求失败';
-    return Promise.reject(new Error(message));
+    const errorType = errorData?.type;
+    const details = errorData?.details;
+    
+    // 创建包含完整错误信息的 Error 对象
+    const enhancedError = new Error(message) as any;
+    enhancedError.type = errorType;
+    enhancedError.details = details;
+    enhancedError.status = error.response?.status;
+    
+    return Promise.reject(enhancedError);
   }
 );
 

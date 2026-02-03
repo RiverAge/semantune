@@ -6,7 +6,10 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional, List
 
+from config.constants import ALLOWED_LABELS
 from src.core.database import dbs_context
+from src.core.response import ApiResponse
+from src.core.exceptions import SemantuneException
 from src.services.service_factory import ServiceFactory
 from src.utils.logger import setup_logger
 
@@ -54,9 +57,13 @@ async def query_by_mood_api(request: QueryByMoodRequest):
             query_service = ServiceFactory.create_query_service(nav_conn, sem_conn)
             songs = query_service.query_by_mood(request.mood, request.limit)
 
-            logger.info(f"按情绪 {request.mood} 查询，返回 {len(songs)} 首歌曲")
-            return {"songs": songs, "count": len(songs)}
+            logger.debug(f"按情绪 {request.mood} 查询，返回 {len(songs)} 首歌曲")
+            return ApiResponse.success_response(
+                data={"songs": songs, "count": len(songs)}
+            )
 
+    except SemantuneException as e:
+        raise
     except Exception as e:
         logger.error(f"按情绪查询失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -84,9 +91,13 @@ async def query_by_tags_api(request: QueryByTagsRequest):
                 limit=request.limit
             )
 
-            logger.info(f"按标签组合查询，返回 {len(songs)} 首歌曲")
-            return {"songs": songs, "count": len(songs)}
+            logger.debug(f"按标签组合查询，返回 {len(songs)} 首歌曲")
+            return ApiResponse.success_response(
+                data={"songs": songs, "count": len(songs)}
+            )
 
+    except SemantuneException as e:
+        raise
     except Exception as e:
         logger.error(f"按标签组合查询失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))

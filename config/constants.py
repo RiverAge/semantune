@@ -1,5 +1,5 @@
 """
-常量定义 - 标签白名单等
+常量定义 - 标签白名单、魔法数字等
 """
 
 # 标签白名单
@@ -10,6 +10,47 @@ ALLOWED_LABELS = {
     "region": {"Chinese", "Western", "Japanese", "Korean"},
     "subculture": {"None", "Anime", "Game", "Vocaloid", "Idol"},
     "genre": {"Pop", "Indie", "Rock", "Electronic", "Hip-Hop", "Classical", "Folk", "J-Rock", "Metal"}
+}
+
+# 时间常量（秒）
+SECONDS_PER_DAY = 86400
+SECONDS_PER_HOUR = 3600
+SECONDS_PER_MINUTE = 60
+
+# 数据库相关常量
+DB_INDEXES = [
+    # music_semantic 表索引
+    "CREATE INDEX IF NOT EXISTS idx_music_semantic_mood ON music_semantic(mood)",
+    "CREATE INDEX IF NOT EXISTS idx_music_semantic_energy ON music_semantic(energy)",
+    "CREATE INDEX IF NOT EXISTS idx_music_semantic_genre ON music_semantic(genre)",
+    "CREATE INDEX IF NOT EXISTS idx_music_semantic_region ON music_semantic(region)",
+    "CREATE INDEX IF NOT EXISTS idx_music_semantic_scene ON music_semantic(scene)",
+    "CREATE INDEX IF NOT EXISTS idx_music_semantic_confidence ON music_semantic(confidence)",
+    "CREATE INDEX IF NOT EXISTS idx_music_semantic_updated_at ON music_semantic(updated_at)",
+    # annotation 表索引
+    "CREATE INDEX IF NOT EXISTS idx_annotation_user_id ON annotation(user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_annotation_item_id ON annotation(item_id)",
+    "CREATE INDEX IF NOT EXISTS idx_annotation_user_item ON annotation(user_id, item_id)",
+]
+
+# 缓存配置
+CACHE_CONFIG = {
+    "user_profile_ttl": 300,  # 5分钟
+    "distribution_ttl": 600,  # 10分钟
+    "quality_stats_ttl": 600,  # 10分钟
+    "enabled": True,
+}
+
+# 场景预设定义
+SCENE_PRESETS = {
+    "深夜": {"mood": ["Peaceful", "Sad", "Dreamy", "Chill"], "energy": ["Low"]},
+    "运动": {"mood": ["Energetic", "Epic"], "energy": ["High"]},
+    "学习": {"mood": ["Peaceful", "Chill"], "energy": ["Low", "Medium"]},
+    "开车": {"mood": ["Energetic", "Upbeat", "Groovy"], "energy": ["Medium", "High"]},
+    "放松": {"mood": ["Peaceful", "Dreamy", "Chill"], "energy": ["Low"]},
+    "派对": {"mood": ["Happy", "Energetic", "Upbeat"], "energy": ["High"]},
+    "伤心": {"mood": ["Sad", "Emotional"], "energy": ["Low", "Medium"]},
+    "励志": {"mood": ["Epic", "Energetic"], "energy": ["High"]},
 }
 
 # 生成标签列表字符串（从 ALLOWED_LABELS 动态生成）

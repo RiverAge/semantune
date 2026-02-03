@@ -131,7 +131,7 @@ class UserRepository:
             GROUP BY pt.media_file_id
         """, (user_id,))
 
-        return {row[0]: row[1] for row in cursor.fetchall()}
+        return {str(row[0]): int(row[1]) for row in cursor.fetchall()}
 
     def get_user_songs(self, user_id: str) -> List[str]:
         """

@@ -4,6 +4,8 @@
 
 import sqlite3
 
+from config.constants import DB_INDEXES
+
 # 语义标签表结构
 MUSIC_SEMANTIC_SCHEMA = """
 CREATE TABLE IF NOT EXISTS music_semantic (
@@ -46,4 +48,9 @@ def init_semantic_db(conn: sqlite3.Connection) -> None:
     """
     conn.execute(MUSIC_SEMANTIC_SCHEMA)
     conn.execute(SYNC_STATE_SCHEMA)
+    
+    # 创建索引
+    for index_sql in DB_INDEXES:
+        conn.execute(index_sql)
+    
     conn.commit()

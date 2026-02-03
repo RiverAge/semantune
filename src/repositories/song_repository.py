@@ -5,6 +5,8 @@
 import sqlite3
 from typing import List, Dict, Any, Optional
 
+from config.constants import SCENE_PRESETS
+
 
 class SongRepository:
     """歌曲数据访问类 - 整合两个数据库"""
@@ -248,22 +250,10 @@ class SongRepository:
         Returns:
             歌曲列表
         """
-        # 场景预设定义
-        presets = {
-            "深夜": {"mood": ["Peaceful", "Sad", "Dreamy", "Chill"], "energy": ["Low"]},
-            "运动": {"mood": ["Energetic", "Epic"], "energy": ["High"]},
-            "学习": {"mood": ["Peaceful", "Chill"], "energy": ["Low", "Medium"]},
-            "开车": {"mood": ["Energetic", "Upbeat", "Groovy"], "energy": ["Medium", "High"]},
-            "放松": {"mood": ["Peaceful", "Dreamy", "Chill"], "energy": ["Low"]},
-            "派对": {"mood": ["Happy", "Energetic", "Upbeat"], "energy": ["High"]},
-            "伤心": {"mood": ["Sad", "Emotional"], "energy": ["Low", "Medium"]},
-            "励志": {"mood": ["Epic", "Energetic"], "energy": ["High"]},
-        }
-
-        if scene_name not in presets:
+        if scene_name not in SCENE_PRESETS:
             return []
 
-        preset = presets[scene_name]
+        preset = SCENE_PRESETS[scene_name]
         mood_list = preset["mood"]
         energy_list = preset["energy"]
 

@@ -4,7 +4,7 @@
 
 from typing import List, Dict, Any, Optional
 
-from config.constants import ALLOWED_LABELS
+from config.constants import ALLOWED_LABELS, SCENE_PRESETS
 from src.repositories.song_repository import SongRepository
 
 
@@ -95,10 +95,7 @@ class QueryService:
         Returns:
             场景名称列表
         """
-        return [
-            "深夜", "运动", "学习", "开车",
-            "放松", "派对", "伤心", "励志"
-        ]
+        return list(SCENE_PRESETS.keys())
 
     def get_available_moods(self) -> List[str]:
         """

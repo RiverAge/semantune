@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 from config.settings import WEIGHT_CONFIG
-from config.constants import ALLOWED_LABELS
+from config.constants import ALLOWED_LABELS, SECONDS_PER_DAY
 from src.repositories.user_repository import UserRepository
 from src.repositories.semantic_repository import SemanticRepository
 
@@ -45,7 +45,7 @@ class ProfileService:
             return WEIGHT_CONFIG['min_decay']
 
         now = time.time()
-        days_ago = (now - play_date) / 86400
+        days_ago = (now - play_date) / SECONDS_PER_DAY
 
         decay = max(
             WEIGHT_CONFIG['min_decay'],
