@@ -136,16 +136,73 @@ async def get_quality():
 @router.get("/overview")
 async def get_overview():
     """
-    获取数据概览
+    获取数据概览（前端专用）
     """
     try:
         with sem_db_context() as sem_conn:
-            analyze_service = ServiceFactory.create_analyze_service(sem_conn)
-            result = analyze_service.get_overview()
-
-            logger.info("获取数据概览")
-
-            return result
+            # 总歌曲数
+            total_songs = sem_conn.execute("SELECT COUNT(*) FROM music_semantic").fetchone()[0]
+            
+            # 已标签歌曲数
+            tagged_songs = sem_conn.execute("SELECT COUNT(*) FROM music_semantic WHERE mood IS NOT NULL AND mood != 'None'").fetchone()[0]
+            
+            # 未标签歌曲数
+            untagged_songs = total_songs - tagged_songs
+            
+            # 标签覆盖率
+            tag_coverage = (tagged_songs / total_songs * 100) if total_songs > 0 else 0
+            
+            # 情绪分布
+            mood_dist = sem_conn.execute("""
+                SELECT mood, COUNT(*) as count
+                FROM music_semantic
+                WHERE mood IS NOT NULL AND mood != 'None'
+                GROUP BY mood
+            """).fetchall()
+            mood_distribution = {row[0]: row[1] for row in mood_dist}
+            
+            # 能量分布
+            energy_dist = sem_conn.execute("""
+                SELECT energy, COUNT(*) as count
+                FROM music_semantic
+                WHERE energy IS NOT NULL AND energy != 'None'
+                GROUP BY energy
+            """).fetchall()
+            energy_distribution = {row[0]: row[1] for row in energy_dist}
+            
+            # 流派分布
+            genre_dist = sem_conn.execute("""
+                SELECT genre, COUNT(*) as count
+                FROM music_semantic
+                WHERE genre IS NOT NULL AND genre != 'None'
+                GROUP BY genre
+            """).fetchall()
+            genre_distribution = {row[0]: row[1] for row in genre_dist}
+            
+            # 地区分布
+            region_dist = sem_conn.execute("""
+                SELECT region, COUNT(*) as count
+                FROM music_semantic
+                WHERE region IS NOT NULL AND region != 'None'
+                GROUP BY region
+            """).fetchall()
+            region_distribution = {row[0]: row[1] for row in region_dist}
+            
+            logger.info("获取整体统计数据")
+        
+        return {
+            "success": True,
+            "data": {
+                "total_songs": total_songs,
+                "tagged_songs": tagged_songs,
+                "untagged_songs": untagged_songs,
+                "tag_coverage": tag_coverage,
+                "mood_distribution": mood_distribution,
+                "energy_distribution": energy_distribution,
+                "genre_distribution": genre_distribution,
+                "region_distribution": region_distribution
+            }
+        }
 
     except Exception as e:
         logger.error(f"获取数据概览失败: {e}")

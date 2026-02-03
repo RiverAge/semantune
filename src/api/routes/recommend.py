@@ -93,14 +93,21 @@ async def get_recommendations(request: RecommendRequest):
 @router.get("/users")
 async def list_users():
     """
-    获取所有用户列表
+    获取所有用户列表（前端专用）
     """
     try:
         with nav_db_context() as nav_conn:
             user_repo = UserRepository(nav_conn)
             users = user_repo.get_all_users()
+            # 前端期望的是用户名列表（字符串数组），而不是对象数组
+            user_names = [user['name'] for user in users if user.get('name')]
 
-        return {"users": users}
+        return {
+            "success": True,
+            "data": {
+                "users": user_names
+            }
+        }
 
     except Exception as e:
         logger.error(f"获取用户列表失败: {e}")

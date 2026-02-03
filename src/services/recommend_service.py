@@ -122,25 +122,31 @@ class RecommendService:
 
         # 使用贪心算法选择多样化的歌曲
         selected = []
-        used_artists = set()
-        used_genres = set()
+        artist_count = {}
+        album_count = {}
+
+        max_per_artist = RECOMMEND_CONFIG.get('diversity_max_per_artist', 1)
+        max_per_album = RECOMMEND_CONFIG.get('diversity_max_per_album', 1)
 
         for song in sorted_candidates:
             if len(selected) >= limit:
                 break
 
             artist = song.get('artist')
-            genre = song.get('genre')
+            album = song.get('album')
 
-            # 检查多样性约束
-            artist_count = sum(1 for s in selected if s.get('artist') == artist)
-            genre_count = sum(1 for s in selected if s.get('genre') == genre)
+            # 检查艺人约束
+            if artist_count.get(artist, 0) >= max_per_artist:
+                continue
 
-            if artist_count < RECOMMEND_CONFIG.get('max_same_artist', 3) and \
-               genre_count < RECOMMEND_CONFIG.get('max_same_genre', 5):
-                selected.append(song)
-                used_artists.add(artist)
-                used_genres.add(genre)
+            # 检查专辑约束（只使用专辑名称，不包含艺人）
+            if album and album_count.get(album, 0) >= max_per_album:
+                continue
+
+            selected.append(song)
+            artist_count[artist] = artist_count.get(artist, 0) + 1
+            if album:
+                album_count[album] = album_count.get(album, 0) + 1
 
         # 如果数量不足，从剩余候选中补充
         if len(selected) < limit:
