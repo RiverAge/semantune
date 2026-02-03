@@ -24,6 +24,16 @@
 
 ### 📝 最近更新
 
+**v1.5.0** (2026-02-03)
+- ✅ 新增缓存模块 - `src/core/cache.py` 提供缓存功能
+- ✅ 新增配置验证器 - `src/core/config_validator.py` 配置验证
+- ✅ 新增数据库迁移模块 - `src/core/migration/` 数据库版本管理
+- ✅ 新增响应模块 - `src/core/response.py` 统一响应格式
+- ✅ 推荐路由模块化 - `src/api/routes/recommend/` 独立模块
+- ✅ 标签路由模块化 - `src/api/routes/tagging/` 独立模块
+- ✅ YAML 配置文件 - `config/recommend_config.yaml` 和 `config/tagging_config.yaml`
+- ✅ 前端组件完善 - 设置和标签页面新增多个子组件
+
 **v1.4.0** (2026-02-03)
 - ✅ 代码重构 - 拆分大文件，提升代码可维护性
 - ✅ 前端组件拆分 - Tagging.tsx 和 Settings.tsx 拆分为多个子组件
@@ -134,12 +144,21 @@ semantune/
 ├── .env.example              # 环境变量模板
 ├── config/                    # 配置文件
 │   ├── settings.py           # 数据库路径、API配置等
-│   └── constants.py          # 标签白名单、提示词模板等
+│   ├── constants.py          # 标签白名单、提示词模板等
+│   ├── recommend_config.yaml # 推荐配置（YAML）
+│   └── tagging_config.yaml   # 标签配置（YAML）
 ├── src/                      # 源代码
 │   ├── core/                 # 核心模块
 │   │   ├── database.py       # 数据库连接
 │   │   ├── schema.py         # 数据库表结构
-│   │   └── exceptions.py     # 异常定义和处理器
+│   │   ├── exceptions.py     # 异常定义和处理器
+│   │   ├── cache.py          # 缓存模块
+│   │   ├── config_validator.py # 配置验证器
+│   │   ├── response.py       # 统一响应格式
+│   │   └── migration/        # 数据库迁移模块
+│   │       ├── manager.py    # 迁移管理器
+│   │       ├── models.py     # 迁移模型
+│   │       └── migrations.py # 迁移脚本
 │   ├── repositories/         # Repository 层（数据访问）
 │   │   ├── user_repository.py      # 用户数据访问
 │   │   ├── semantic_repository.py  # 语义标签数据访问（主入口）
@@ -165,7 +184,14 @@ semantune/
 │   ├── api/                  # FastAPI 接口
 │   │   ├── app.py            # FastAPI 主应用
 │   │   └── routes/           # API 路由
-│   │       ├── recommend.py  # 推荐接口
+│   │       ├── recommend/    # 推荐接口模块
+│   │       │   ├── __init__.py
+│   │       │   ├── endpoints.py # 推荐端点
+│   │       │   └── models.py  # 推荐模型
+│   │       ├── tagging/      # 标签接口模块
+│   │       │   ├── __init__.py
+│   │       │   ├── endpoints.py # 标签端点
+│   │       │   └── models.py  # 标签模型
 │   │       ├── query.py      # 查询接口
 │   │       ├── tagging.py    # 标签生成接口（主入口）
 │   │       ├── tagging_sse.py # SSE 进度流模块
@@ -182,14 +208,30 @@ semantune/
 │   ├── src/
 │   │   ├── api/              # API 客户端
 │   │   ├── components/       # 通用组件
+│   │   │   ├── Error.tsx     # 错误组件
+│   │   │   ├── Layout.tsx    # 布局组件
+│   │   │   └── Loading.tsx   # 加载组件
 │   │   ├── pages/            # 页面组件
+│   │   │   ├── Home.tsx      # 首页
+│   │   │   ├── Recommend.tsx # 推荐页面
+│   │   │   ├── Query.tsx     # 查询页面
+│   │   │   ├── Tagging.tsx   # 标签页面
+│   │   │   ├── Analyze.tsx   # 分析页面
+│   │   │   ├── Settings.tsx  # 设置页面
 │   │   │   ├── tagging/      # 标签页面子组件
 │   │   │   │   ├── TaggingConfig.tsx
 │   │   │   │   ├── BatchTagging.tsx
-│   │   │   │   └── TagTest.tsx
+│   │   │   │   ├── TagTest.tsx
+│   │   │   │   ├── TaggingHeader.tsx
+│   │   │   │   ├── TaggingTabs.tsx
+│   │   │   │   └── useTagging.tsx
 │   │   │   └── settings/     # 设置页面子组件
+│   │   │       ├── BasicConfig.tsx
+│   │   │       ├── AlgorithmConfigPanel.tsx
 │   │   │       ├── RecommendConfigPanel.tsx
-│   │   │       └── TaggingConfigPanel.tsx
+│   │   │       ├── TaggingConfigPanel.tsx
+│   │   │       ├── TagWeights.tsx
+│   │   │       └── UserProfileConfigPanel.tsx
 │   │   ├── types/            # TypeScript 类型定义
 │   │   ├── App.tsx           # 主应用组件
 │   │   └── main.tsx          # 入口文件
@@ -250,8 +292,21 @@ semantune/
 │  │ Repository   │                                           │
 │  └──────────────┘                                           │
 └────────────────────────────┬────────────────────────────────┘
-                             │
-                             ▼
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Core Layer                                │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │ Database     │  │ Cache        │  │ Response     │     │
+│  │ Manager      │  │ Manager      │  │ Formatter    │     │
+│  └──────────────┘  └──────────────┘  └──────────────┘     │
+│  ┌──────────────┐  ┌──────────────┐                        │
+│  │ Config       │  │ Migration    │                        │
+│  │ Validator    │  │ Manager      │                        │
+│  └──────────────┘  └──────────────┘                        │
+└────────────────────────────┬────────────────────────────────┘
+                              │
+                              ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    Database Layer                            │
 │  ┌──────────────┐              ┌──────────────┐            │
@@ -264,6 +319,7 @@ semantune/
 - **CLI/API Layer**: 处理用户请求，参数验证，调用 Service 层
 - **Service Layer**: 实现业务逻辑，协调多个 Repository
 - **Repository Layer**: 封装数据访问逻辑，与数据库交互
+- **Core Layer**: 提供数据库连接、缓存、配置验证、响应格式化、数据库迁移等核心功能
 - **Database Layer**: SQLite 数据库存储
 
 ---
@@ -508,6 +564,28 @@ python main.py export
 
 ### 推荐配置
 
+推荐配置支持两种方式：
+
+#### 方式一：YAML 配置文件（推荐）
+
+编辑 [`config/recommend_config.yaml`](config/recommend_config.yaml:1)：
+
+```yaml
+recommend:
+  default_limit: 30                # 默认推荐数量
+  recent_filter_count: 100         # 过滤最近听过的 N 首歌
+  diversity_max_per_artist: 2      # 每个歌手最多推荐 N 首
+  diversity_max_per_album: 1       # 每张专辑最多推荐 N 首
+  exploration_ratio: 0.25          # 探索型歌曲占比（25%）
+  tag_weights:                     # 标签权重
+    mood: 2.0                      # 情绪最重要
+    energy: 1.5                    # 能量次之
+    genre: 1.2                     # 流派
+    region: 0.8                    # 地区权重较低
+```
+
+#### 方式二：Python 配置文件
+
 编辑 [`config/settings.py`](config/settings.py:1) 中的 `RECOMMEND_CONFIG`：
 
 ```python
@@ -524,6 +602,18 @@ RECOMMEND_CONFIG = {
         "region": 0.8                   # 地区权重较低
     }
 }
+```
+
+### 标签配置
+
+编辑 [`config/tagging_config.yaml`](config/tagging_config.yaml:1)：
+
+```yaml
+tagging:
+  batch_size: 10               # 批量处理大小
+  max_retries: 3               # 最大重试次数
+  timeout: 30                  # 请求超时时间（秒）
+  confidence_threshold: 0.5    # 置信度阈值
 ```
 
 ### 用户画像权重配置
@@ -680,6 +770,7 @@ pip install fastapi uvicorn python-dotenv
 | 查询 | `/query` | 根据语义标签搜索歌曲 |
 | 标签生成 | `/tagging` | 管理语义标签生成任务 |
 | 分析 | `/analyze` | 查看详细的数据分析 |
+| 设置 | `/settings` | 系统配置管理 |
 
 ### 前端开发
 
@@ -715,6 +806,11 @@ npm run preview
 | **核心模块** | Database | [`src/core/database.py`](src/core/database.py:1) | 数据库连接和上下文管理器 |
 | | Schema | [`src/core/schema.py`](src/core/schema.py:1) | 数据库表结构定义 |
 | | Exceptions | [`src/core/exceptions.py`](src/core/exceptions.py:1) | 异常定义和全局处理器 |
+| | Cache | [`src/core/cache.py`](src/core/cache.py:1) | 缓存管理器 |
+| | Config Validator | [`src/core/config_validator.py`](src/core/config_validator.py:1) | 配置验证器 |
+| | Response | [`src/core/response.py`](src/core/response.py:1) | 统一响应格式 |
+| | Migration Manager | [`src/core/migration/manager.py`](src/core/migration/manager.py:1) | 数据库迁移管理器 |
+| | Migration Models | [`src/core/migration/models.py`](src/core/migration/models.py:1) | 迁移模型定义 |
 | **Repository 层** | User Repository | [`src/repositories/user_repository.py`](src/repositories/user_repository.py:1) | 用户数据访问 |
 | | Semantic Repository | [`src/repositories/semantic_repository.py`](src/repositories/semantic_repository.py:1) | 语义标签数据访问 |
 | | Navidrome Repository | [`src/repositories/navidrome_repository.py`](src/repositories/navidrome_repository.py:1) | Navidrome 数据访问 |
@@ -722,6 +818,8 @@ npm run preview
 | **Service 层** | Service Factory | [`src/services/service_factory.py`](src/services/service_factory.py:1) | 服务工厂（依赖注入） |
 | | Tagging Service | [`src/services/tagging_service.py`](src/services/tagging_service.py:1) | 标签生成业务逻辑 |
 | | Recommend Service | [`src/services/recommend_service.py`](src/services/recommend_service.py:1) | 推荐算法实现 |
+| | Recommend Similarity | [`src/services/recommend_similarity.py`](src/services/recommend_similarity.py:1) | 相似度计算模块 |
+| | Recommend Diversity | [`src/services/recommend_diversity.py`](src/services/recommend_diversity.py:1) | 多样性控制模块 |
 | | Profile Service | [`src/services/profile_service.py`](src/services/profile_service.py:1) | 用户画像构建 |
 | | Query Service | [`src/services/query_service.py`](src/services/query_service.py:1) | 查询业务逻辑 |
 | | Analyze Service | [`src/services/analyze_service.py`](src/services/analyze_service.py:1) | 分析业务逻辑 |
@@ -730,9 +828,14 @@ npm run preview
 | | Query CLI | [`src/cli/query_cli.py`](src/cli/query_cli.py:1) | 查询命令 |
 | | Analyze CLI | [`src/cli/analyze_cli.py`](src/cli/analyze_cli.py:1) | 分析命令 |
 | **API 层** | FastAPI App | [`src/api/app.py`](src/api/app.py:1) | FastAPI 主应用 |
-| | Recommend Routes | [`src/api/routes/recommend.py`](src/api/routes/recommend.py:1) | 推荐接口 |
+| | Recommend Routes | [`src/api/routes/recommend/`](src/api/routes/recommend/) | 推荐接口模块 |
+| | Tagging Routes | [`src/api/routes/tagging/`](src/api/routes/tagging/) | 标签接口模块 |
 | | Query Routes | [`src/api/routes/query.py`](src/api/routes/query.py:1) | 查询接口 |
-| | Tagging Routes | [`src/api/routes/tagging.py`](src/api/routes/tagging.py:1) | 标签生成接口 |
+| | Tagging SSE | [`src/api/routes/tagging_sse.py`](src/api/routes/tagging_sse.py:1) | SSE 进度流模块 |
+| | Tagging Tasks | [`src/api/routes/tagging_tasks.py`](src/api/routes/tagging_tasks.py:1) | 后台任务模块 |
+| | Config Routes | [`src/api/routes/config.py`](src/api/routes/config.py:1) | 配置接口（主入口） |
+| | Config API | [`src/api/routes/config_api.py`](src/api/routes/config_api.py:1) | API 配置管理 |
+| | Config YAML | [`src/api/routes/config_yaml.py`](src/api/routes/config_yaml.py:1) | YAML 配置管理 |
 | | Analyze Routes | [`src/api/routes/analyze.py`](src/api/routes/analyze.py:1) | 分析接口 |
 | **工具函数** | Common Utils | [`src/utils/common.py`](src/utils/common.py:1) | 通用工具函数 |
 | | Logger | [`src/utils/logger.py`](src/utils/logger.py:1) | 日志配置 |
@@ -748,7 +851,7 @@ npm run preview
 
 ## 🚀 里程碑
 
-### v1.0.0 (当前版本)
+### v1.5.0 (当前版本)
 - ✅ 基础语义标签生成功能
 - ✅ 用户画像即时构建
 - ✅ 个性化推荐引擎
@@ -756,8 +859,14 @@ npm run preview
 - ✅ React + TypeScript 前端界面
 - ✅ 标签查询和分析工具
 - ✅ 数据导出功能
+- ✅ 缓存模块
+- ✅ 配置验证器
+- ✅ 数据库迁移模块
+- ✅ 统一响应格式
+- ✅ YAML 配置文件支持
+- ✅ API 路由模块化
 
-### v1.1.0 (计划中)
+### v1.6.0 (计划中)
 - 🔄 并发标签生成优化
 - 🔄 API 认证机制
 - 🔄 推荐结果缓存
