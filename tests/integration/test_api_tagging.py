@@ -48,7 +48,7 @@ class TestTaggingAPI:
                 "raw_response": "Mock LLM response"
             })
 
-            with patch('src.api.routes.tagging.endpoints.ServiceFactory', return_value=mock_tagging_service):
+            with patch('src.api.routes.tagging.endpoints.ServiceFactory.create_tagging_service', return_value=mock_tagging_service):
                 request_data = {
                     "title": "Test Song",
                     "artist": "Test Artist",
@@ -80,7 +80,7 @@ class TestTaggingAPI:
                 "raw_response": "Mock LLM response"
             })
 
-            with patch('src.api.routes.tagging.endpoints.ServiceFactory', return_value=mock_tagging_service):
+            with patch('src.api.routes.tagging.endpoints.ServiceFactory.create_tagging_service', return_value=mock_tagging_service):
                 request_data = {
                     "title": "Test Song",
                     "artist": "Test Artist"
@@ -101,7 +101,7 @@ class TestTaggingAPI:
             mock_tagging_service = Mock()
             mock_tagging_service.generate_tag = Mock(side_effect=Exception("LLM API Error"))
 
-            with patch('src.api.routes.tagging.endpoints.ServiceFactory', return_value=mock_tagging_service):
+            with patch('src.api.routes.tagging.endpoints.ServiceFactory.create_tagging_service', return_value=mock_tagging_service):
                 request_data = {
                     "title": "Test Song",
                     "artist": "Test Artist"
@@ -250,7 +250,7 @@ class TestTaggingAPI:
             })
 
             with patch('src.api.routes.tagging.endpoints.NavidromeRepository', return_value=mock_nav_repo):
-                with patch('src.api.routes.tagging.endpoints.ServiceFactory', return_value=mock_tagging_service):
+                with patch('src.api.routes.tagging.endpoints.ServiceFactory.create_tagging_service', return_value=mock_tagging_service):
                     response = client.get("/api/v1/tagging/preview?limit=2")
 
                     assert response.status_code == 200
@@ -283,7 +283,7 @@ class TestTaggingAPI:
             assert response.status_code == 200
             data = response.json()
             assert data["success"] is False
-            assert "running" in data["error"]["message"].lower()
+            assert "运行" in data["error"]["message"]
 
     def test_stop_tagging_success(self, client):
         """测试停止标签生成"""
@@ -313,14 +313,22 @@ class TestTaggingAPI:
         """测试获取标签生成历史"""
         with patch('src.api.routes.tagging.endpoints.sem_db_context') as mock_sem:
             sem_conn = Mock()
-            mock_sem.return_value.__enter__ = Mock(return_value=sem_conn)
-            mock_sem.return_value.__exit__ = Mock(return_value=False)
 
+            # Mock the history query cursor
             mock_cursor = Mock()
             mock_cursor.fetchall = Mock(return_value=[
                 ("song1", "Song 1", "Artist 1", "Album 1", "happy", "medium", "None", "Western", "None", "pop", 0.85, "2026-02-01 12:00:00")
             ])
-            sem_conn.execute = Mock(return_value=mock_cursor)
+
+            # Mock the count query cursor
+            mock_count_cursor = Mock()
+            mock_count_cursor.fetchone = Mock(return_value=[1])
+
+            # Set up execute to return appropriate cursors based on call order
+            sem_conn.execute = Mock(side_effect=[mock_cursor, mock_count_cursor])
+
+            mock_sem.return_value.__enter__ = Mock(return_value=sem_conn)
+            mock_sem.return_value.__exit__ = Mock(return_value=False)
 
             response = client.get("/api/v1/tagging/history?limit=10&offset=0")
 
