@@ -14,6 +14,8 @@ import type {
   AlgorithmConfig,
   TaggingApiConfig,
   AllConfig,
+  LogFileInfo,
+  LogContentResponse,
 } from '../types';
 
 const api = axios.create({
@@ -267,6 +269,31 @@ export const configApi = {
   // 获取所有配置
   getAllConfig: async () => {
     return await api.get<ApiResponse<AllConfig>>('/config/all');
+  },
+};
+
+// 日志查看相关 API
+export const logsApi = {
+  // 列出所有日志文件
+  listLogs: async () => {
+    return await api.get<ApiResponse<LogFileInfo[]>>('/logs');
+  },
+
+  // 获取日志文件内容
+  getLogContent: async (
+    logFile: string,
+    tail?: number,
+    head?: number,
+    filterLevel?: string
+  ) => {
+    return await api.get<ApiResponse<LogContentResponse>>(`/logs/${logFile}`, {
+      params: { tail, head, filter_level: filterLevel }
+    });
+  },
+
+  // 获取日志文件信息
+  getLogFileInfo: async (logFile: string) => {
+    return await api.get<ApiResponse<LogFileInfo>>(`/logs/${logFile}/size`);
   },
 };
 

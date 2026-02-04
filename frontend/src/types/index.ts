@@ -145,3 +145,26 @@ export interface AllConfig {
   algorithm: AlgorithmConfig;
   api_config: TaggingApiConfig;
 }
+
+// 日志相关类型
+export interface LogFileInfo {
+  name: string;
+  path: string;
+  size: number;
+  lines: number;
+}
+
+export interface LogLine {
+  line_number: number;
+  timestamp: string | null;
+  level: string | null;
+  module: string | null;
+  message: string;
+}
+
+export interface LogContentResponse {
+  file: string;
+  total_lines: number;
+  lines: LogLine[];
+  filtered: boolean;
+}

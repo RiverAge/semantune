@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Music, Search, Tag, BarChart3, Home, Settings } from 'lucide-react';
+import { Music, Search, Tag, BarChart3, Home, Settings, FileText } from 'lucide-react';
 
 const navItems = [
   { path: '/', label: '首页', icon: Home },
@@ -7,6 +7,7 @@ const navItems = [
   { path: '/query', label: '查询', icon: Search },
   { path: '/tagging', label: '标签生成', icon: Tag },
   { path: '/analyze', label: '分析', icon: BarChart3 },
+  { path: '/logs', label: '日志', icon: FileText },
   { path: '/settings', label: '配置', icon: Settings },
 ];
 
