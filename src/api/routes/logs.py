@@ -173,6 +173,9 @@ async def list_logs():
             try:
                 log_info = get_log_file_info(log_name)
                 logs.append(log_info)
+            except HTTPException:
+                # 文件不存在，跳过
+                continue
             except Exception as e:
                 logger.warning(f"无法获取日志文件 {log_name} 的信息: {e}")
         
