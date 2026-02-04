@@ -24,16 +24,16 @@ class TestSimilarityCalculator:
         calculator = SimilarityCalculator()
 
         user_profile = {
-            'mood': {'happy': 0.8, 'sad': 0.2},
-            'energy': {'high': 0.9, 'low': 0.1},
-            'genre': {'pop': 0.7, 'rock': 0.3},
-            'region': {'Western': 1.0, 'Eastern': 0.0}
+            'mood': {'Happy': 0.8, 'Sad': 0.2},
+            'energy': {'High': 0.9, 'Low': 0.1},
+            'genre': {'Pop': 0.7, 'Rock': 0.3},
+            'region': {'Western': 1.0, 'Chinese': 0.0}
         }
 
         song_tags = {
-            'mood': 'happy',
-            'energy': 'high',
-            'genre': 'pop',
+            'mood': 'Happy',
+            'energy': 'High',
+            'genre': 'Pop',
             'region': 'Western'
         }
 
@@ -47,39 +47,39 @@ class TestSimilarityCalculator:
         calculator = SimilarityCalculator()
 
         user_profile = {
-            'mood': {'happy': 0.9, 'sad': 0.1},
-            'energy': {'high': 0.8, 'low': 0.2},
-            'genre': {'pop': 0.7, 'rock': 0.3},
-            'region': {'Western': 1.0, 'Eastern': 0.0}
+            'mood': {'Happy': 0.9, 'Sad': 0.1},
+            'energy': {'High': 0.8, 'Low': 0.2},
+            'genre': {'Pop': 0.7, 'Rock': 0.3},
+            'region': {'Chinese': 1.0, 'Japanese': 0.0}
         }
 
         song_tags = {
-            'mood': 'sad',
-            'energy': 'low',
-            'genre': 'rock',
-            'region': 'Eastern'
+            'mood': 'Sad',
+            'energy': 'Low',
+            'genre': 'Rock',
+            'region': 'Japanese'
         }
 
         similarity = calculator.calculate_similarity(song_tags, user_profile)
 
-        # 不完全匹配相似度应该较低
-        assert 0.0 <= similarity < 1.0
+        # 匹配的相似度
+        assert 0.1 < similarity < 1.0
 
     def test_calculate_similarity_partial_match(self):
         """测试部分匹配的情况"""
         calculator = SimilarityCalculator()
 
         user_profile = {
-            'mood': {'happy': 0.7, 'sad': 0.3},
-            'energy': {'high': 0.6, 'low': 0.4},
-            'genre': {'pop': 0.5, 'rock': 0.5},
+            'mood': {'Happy': 0.7, 'Sad': 0.3},
+            'energy': {'High': 0.6, 'Low': 0.4},
+            'genre': {'Pop': 0.5, 'Rock': 0.5},
             'region': {'Western': 1.0}
         }
 
         song_tags = {
-            'mood': 'happy',
-            'energy': 'low',
-            'genre': 'rock',
+            'mood': 'Happy',
+            'energy': 'Low',
+            'genre': 'Rock',
             'region': 'Western'
         }
 
@@ -94,9 +94,9 @@ class TestSimilarityCalculator:
 
         user_profile = {}
         song_tags = {
-            'mood': 'happy',
-            'energy': 'high',
-            'genre': 'pop',
+            'mood': 'Happy',
+            'energy': 'High',
+            'genre': 'Pop',
             'region': 'Western'
         }
 
@@ -110,9 +110,9 @@ class TestSimilarityCalculator:
         calculator = SimilarityCalculator()
 
         user_profile = {
-            'mood': {'happy': 0.8},
-            'energy': {'high': 0.7},
-            'genre': {'pop': 0.6},
+            'mood': {'Happy': 0.8},
+            'energy': {'High': 0.7},
+            'genre': {'Pop': 0.6},
             'region': {'Western': 0.9}
         }
 
@@ -140,12 +140,12 @@ class TestSimilarityCalculator:
         calculator = SimilarityCalculator()
 
         user_profile = {
-            'mood': {'happy': 0.9},
-            'energy': {'high': 0.8}
+            'mood': {'Happy': 0.9},
+            'energy': {'High': 0.8}
         }
 
         song_tags = {
-            'mood': 'happy'
+            'mood': 'Happy'
         }
 
         similarity = calculator.calculate_similarity(song_tags, user_profile)
@@ -158,15 +158,15 @@ class TestSimilarityCalculator:
         calculator = SimilarityCalculator()
 
         user_profile = {
-            'mood': {'happy': 0.7},
-            'energy': {'high': 0.6},
-            'genre': {'pop': 0.5},
+            'mood': {'Happy': 0.7},
+            'energy': {'High': 0.6},
+            'genre': {'Pop': 0.5},
             'region': {'Western': 0.4}
         }
 
         song_tags = {
-            'mood': 'happy',
-            'energy': 'high'
+            'mood': 'Happy',
+            'energy': 'High'
         }
 
         similarity = calculator.calculate_similarity(song_tags, user_profile)
@@ -178,8 +178,8 @@ class TestSimilarityCalculator:
         """测试返回值类型"""
         calculator = SimilarityCalculator()
 
-        user_profile = {'mood': {'happy': 0.5}}
-        song_tags = {'mood': 'happy'}
+        user_profile = {'mood': {'Happy': 0.5}}
+        song_tags = {'mood': 'Happy'}
 
         similarity = calculator.calculate_similarity(song_tags, user_profile)
 
@@ -191,16 +191,16 @@ class TestSimilarityCalculator:
         calculator = SimilarityCalculator()
 
         user_profile = {
-            'mood': {'happy': 0.5, 'sad': 0.5},
-            'energy': {'high': 0.5, 'low': 0.5},
-            'genre': {'pop': 0.5, 'rock': 0.5},
-            'region': {'Western': 0.5, 'Eastern': 0.5}
+            'mood': {'Happy': 0.5, 'Sad': 0.5},
+            'energy': {'High': 0.5, 'Low': 0.5},
+            'genre': {'Pop': 0.5, 'Rock': 0.5},
+            'region': {'Western': 0.5, 'Chinese': 0.5}
         }
 
         song_tags = {
-            'mood': 'happy',
-            'energy': 'high',
-            'genre': 'pop',
+            'mood': 'Happy',
+            'energy': 'High',
+            'genre': 'Pop',
             'region': 'Western'
         }
 
@@ -247,16 +247,16 @@ class TestSimilarityCalculator:
         calculator = SimilarityCalculator()
 
         user_profile = {
-            'mood': {'happy': 0.5},
+            'mood': {'Happy': 0.5},
             'energy': {},
-            'genre': {'pop': 0.3},
+            'genre': {'Pop': 0.3},
             'region': {}
         }
 
         song_tags = {
-            'mood': 'happy',
-            'energy': 'high',
-            'genre': 'pop',
+            'mood': 'Happy',
+            'energy': 'High',
+            'genre': 'Pop',
             'region': 'Western'
         }
 
@@ -264,3 +264,114 @@ class TestSimilarityCalculator:
 
         # 应该能处理空的类型
         assert 0.0 <= similarity <= 1.0
+
+    def test_calculate_multiple_mood_tags(self):
+        """测试多个mood标签的计算"""
+        calculator = SimilarityCalculator()
+
+        user_profile = {
+            'mood': {'Happy': 0.4, 'Sad': 0.3, 'Energetic': 0.3},
+            'energy': {'High': 0.8},
+            'genre': {'Pop': 0.6},
+            'region': {'Western': 0.5}
+        }
+
+        song_tags = {
+            'mood': 'Energetic',
+            'energy': 'High',
+            'genre': 'Pop',
+            'region': 'Chinese'
+        }
+
+        similarity = calculator.calculate_similarity(song_tags, user_profile)
+
+        # 应该正确处理用户profile中的mood标签
+        assert 0.0 < similarity < 1.0
+
+    def test_calculate_multiple_energy_tags(self):
+        """测试多个energy标签的计算"""
+        calculator = SimilarityCalculator()
+
+        user_profile = {
+            'mood': {'Happy': 0.7},
+            'energy': {'High': 0.5, 'Low': 0.3, 'Medium': 0.2},
+            'genre': {'Pop': 0.6},
+            'region': {'Western': 0.5}
+        }
+
+        song_tags = {
+            'mood': 'Happy',
+            'energy': 'Low',
+            'genre': 'Rock',
+            'region': 'Japanese'
+        }
+
+        similarity = calculator.calculate_similarity(song_tags, user_profile)
+
+        # 应该正确处理用户profile中的energy标签
+        assert 0.0 < similarity < 1.0
+
+    def test_calculate_multiple_genre_tags(self):
+        """测试多个genre标签的计算"""
+        calculator = SimilarityCalculator()
+
+        user_profile = {
+            'mood': {'Happy': 0.6},
+            'energy': {'High': 0.7},
+            'genre': {'Pop': 0.3, 'Rock': 0.2, 'Electronic': 0.5},
+            'region': {'Western': 0.5}
+        }
+
+        song_tags = {
+            'mood': 'Sad',
+            'energy': 'Low',
+            'genre': 'Electronic',
+            'region': 'Chinese'
+        }
+
+        similarity = calculator.calculate_similarity(song_tags, user_profile)
+
+        # 应该正确处理用户profile中的genre标签
+        assert 0.0 < similarity < 1.0
+
+    def test_calculate_exact_mood_match(self):
+        """测试mood标签精确匹配触发第48行"""
+        calculator = SimilarityCalculator()
+
+        user_profile = {
+            'mood': {'Happy': 0.5, 'Sad': 0.3}
+        }
+        song_tags = {'mood': 'Happy'}
+
+        similarity = calculator.calculate_similarity(song_tags, user_profile)
+
+        # 应该匹配到Happy并累加分数
+        assert 0.0 < similarity <= 1.0
+
+    def test_calculate_exact_energy_match(self):
+        """测试energy标签精确匹配触发第53行"""
+        calculator = SimilarityCalculator()
+
+        user_profile = {
+            'energy': {'High': 0.6, 'Low': 0.4}
+        }
+        song_tags = {'energy': 'High'}
+
+        similarity = calculator.calculate_similarity(song_tags, user_profile)
+
+        # 应该匹配到High并累加分数
+        assert 0.0 < similarity <= 1.0
+
+    def test_calculate_exact_genre_match(self):
+        """测试genre标签精确匹配触发第58行"""
+        calculator = SimilarityCalculator()
+
+        user_profile = {
+            'genre': {'Pop': 0.5, 'Rock': 0.3}
+        }
+        song_tags = {'genre': 'Pop'}
+
+        similarity = calculator.calculate_similarity(song_tags, user_profile)
+
+        # 应该匹配到Pop并累加分数
+        assert 0.0 < similarity <= 1.0
