@@ -127,8 +127,8 @@ export default function BatchTagging({
       )}
 
       {/* 历史记录 */}
-      <div className="card flex flex-col">
-        <div className="flex items-center justify-between mb-4 shrink-0">
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center">
             <History className="h-5 w-5 text-primary-600 mr-2" />
             <h2 className="text-lg font-semibold">标记历史</h2>
@@ -161,7 +161,7 @@ export default function BatchTagging({
         {history.length === 0 ? (
           <div className="text-center py-8 text-gray-500">暂无标记记录</div>
         ) : (
-          <div className="flex-1 overflow-y-auto pr-2 space-y-3 max-h-[calc(100vh-500px)]">
+          <div className="overflow-y-auto pr-2 space-y-3 max-h-[600px]">
             {history.map((item, index) => (
               <div key={index} className="p-3 bg-gray-50 rounded-lg">
                 <div className="flex flex-wrap items-center gap-2 mb-2">
