@@ -200,7 +200,7 @@ export default function Recommend() {
               {exporting ? '导出中...' : '导出报告'}
             </button>
           </div>
-          <div className="space-y-3">
+          <div className="max-h-[600px] overflow-y-auto pr-2 space-y-3 scroll-smooth">
             {recommendations.map((song, index) => (
               <div
                 key={song.file_id}

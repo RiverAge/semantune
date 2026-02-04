@@ -163,7 +163,7 @@ export default function Query() {
             <h2 className="text-lg font-semibold">查询结果</h2>
             <span className="text-sm text-gray-500">共 {songs.length} 首</span>
           </div>
-          <div className="space-y-3">
+          <div className="max-h-[600px] overflow-y-auto pr-2 space-y-3 scroll-smooth">
             {songs.map((song) => (
               <div
                 key={song.file_id}
