@@ -520,6 +520,246 @@ class TestValidateConfig:
         assert any("default_limit 大于 100" in w for w in result["warnings"])
         assert result["summary"]["total_warnings"] > 0
 
+    @patch('src.core.config_validator.get_api_key', side_effect=ValueError('Invalid API key format'))
+    @patch('src.core.config_validator.NAV_DB', '/tmp/test/navidrome.db')
+    @patch('src.core.config_validator.SEM_DB', '/tmp/test/semantic.db')
+    @patch('src.core.config_validator.LOG_DIR', '/tmp/test/logs')
+    @patch('src.core.config_validator.EXPORT_DIR', '/tmp/test/exports')
+    @patch('src.core.config_validator.BASE_URL', 'https://api.example.com/v1')
+    @patch('src.core.config_validator.MODEL', 'test-model')
+    @patch('src.core.config_validator.get_recommend_config')
+    @patch('src.core.config_validator.get_user_profile_config')
+    @patch('src.core.config_validator.get_tagging_api_config')
+    @patch('src.core.config_validator.get_allowed_labels')
+    @patch('src.core.config_validator.CORS_ORIGINS', ['http://localhost:5173'])
+    def test_validate_config_api_key_value_error(
+        self,
+        mock_allowed_labels,
+        mock_api_config,
+        mock_user_profile_config,
+        mock_recommend_config,
+        mock_api_key
+    ):
+        """测试 API Key 配置错误（ValueError）"""
+        mock_recommend_config.return_value = {"default_limit": 20}
+        mock_user_profile_config.return_value = {
+            "play_count": 1.0,
+            "starred": 2.0,
+            "in_playlist": 1.5,
+            "time_decay_days": 30,
+            "min_decay": 0.1
+        }
+        mock_api_config.return_value = {
+            "timeout": 30,
+            "max_tokens": 1000,
+            "temperature": 0.7
+        }
+        mock_allowed_labels.return_value = {
+            "mood": {"happy", "sad"},
+            "genre": {"pop", "rock"}
+        }
+
+        Path('/tmp/test').mkdir(parents=True, exist_ok=True)
+        Path('/tmp/test/logs').mkdir(parents=True, exist_ok=True)
+        Path('/tmp/test/exports').mkdir(parents=True, exist_ok=True)
+
+        result = validate_config()
+
+        assert result["status"] == "error"
+        assert any("API Key 配置错误" in e for e in result["errors"])
+        assert any("Invalid API key format" in e for e in result["errors"])
+
+    @patch('src.core.config_validator.get_api_key')
+    @patch('src.core.config_validator.NAV_DB', '/nonexistent/dir/navidrome.db')
+    @patch('src.core.config_validator.SEM_DB', '/tmp/test/semantic.db')
+    @patch('src.core.config_validator.LOG_DIR', '/tmp/test/logs')
+    @patch('src.core.config_validator.EXPORT_DIR', '/tmp/test/exports')
+    @patch('src.core.config_validator.BASE_URL', 'https://api.example.com/v1')
+    @patch('src.core.config_validator.MODEL', 'test-model')
+    @patch('src.core.config_validator.get_recommend_config')
+    @patch('src.core.config_validator.get_user_profile_config')
+    @patch('src.core.config_validator.get_tagging_api_config')
+    @patch('src.core.config_validator.get_allowed_labels')
+    @patch('src.core.config_validator.CORS_ORIGINS', ['http://localhost:5173'])
+    @patch('src.core.config_validator.Path')
+    def test_validate_config_nav_db_parent_not_exists(
+        self,
+        mock_path,
+        mock_allowed_labels,
+        mock_api_config,
+        mock_user_profile_config,
+        mock_recommend_config,
+        mock_api_key
+    ):
+        """测试 Navidrome 数据库目录不存在"""
+        # 模拟 Path 行为
+        nav_path = Mock()
+        nav_path.parent.exists.return_value = False
+        sem_path = Mock()
+        sem_path.parent.exists.return_value = True
+        log_path = Mock()
+        log_path.exists.return_value = True
+        export_path = Mock()
+        export_path.exists.return_value = True
+        
+        def path_side_effect(p):
+            if 'navidrome' in p:
+                return nav_path
+            elif 'semantic' in p:
+                return sem_path
+            elif 'logs' in p:
+                return log_path
+            elif 'export' in p:
+                return export_path
+            return Mock()
+        
+        mock_path.side_effect = path_side_effect
+
+        mock_api_key.return_value = "valid_api_key_1234567890"
+        mock_recommend_config.return_value = {"default_limit": 20}
+        mock_user_profile_config.return_value = {
+            "play_count": 1.0,
+            "starred": 2.0,
+            "in_playlist": 1.5,
+            "time_decay_days": 30,
+            "min_decay": 0.1
+        }
+        mock_api_config.return_value = {
+            "timeout": 30,
+            "max_tokens": 1000,
+            "temperature": 0.7
+        }
+        mock_allowed_labels.return_value = {
+            "mood": {"happy", "sad"},
+            "genre": {"pop", "rock"}
+        }
+
+        result = validate_config()
+
+        assert result["status"] == "ok"
+        assert any("Navidrome 数据库目录不存在" in w for w in result["warnings"])
+
+    @patch('src.core.config_validator.get_api_key')
+    @patch('src.core.config_validator.NAV_DB', '/tmp/test/navidrome.db')
+    @patch('src.core.config_validator.SEM_DB', '/nonexistent/dir/semantic.db')
+    @patch('src.core.config_validator.LOG_DIR', '/tmp/test/logs')
+    @patch('src.core.config_validator.EXPORT_DIR', '/tmp/test/exports')
+    @patch('src.core.config_validator.BASE_URL', 'https://api.example.com/v1')
+    @patch('src.core.config_validator.MODEL', 'test-model')
+    @patch('src.core.config_validator.get_recommend_config')
+    @patch('src.core.config_validator.get_user_profile_config')
+    @patch('src.core.config_validator.get_tagging_api_config')
+    @patch('src.core.config_validator.get_allowed_labels')
+    @patch('src.core.config_validator.CORS_ORIGINS', ['http://localhost:5173'])
+    @patch('src.core.config_validator.Path')
+    def test_validate_config_sem_db_parent_not_exists(
+        self,
+        mock_path,
+        mock_allowed_labels,
+        mock_api_config,
+        mock_user_profile_config,
+        mock_recommend_config,
+        mock_api_key
+    ):
+        """测试语义数据库目录不存在"""
+        # 模拟 Path 行为
+        nav_path = Mock()
+        nav_path.parent.exists.return_value = True
+        sem_path = Mock()
+        sem_path.parent.exists.return_value = False
+        log_path = Mock()
+        log_path.exists.return_value = True
+        export_path = Mock()
+        export_path.exists.return_value = True
+        
+        def path_side_effect(p):
+            if 'navidrome' in p:
+                return nav_path
+            elif 'semantic' in p:
+                return sem_path
+            elif 'logs' in p:
+                return log_path
+            elif 'export' in p:
+                return export_path
+            return Mock()
+        
+        mock_path.side_effect = path_side_effect
+
+        mock_api_key.return_value = "valid_api_key_1234567890"
+        mock_recommend_config.return_value = {"default_limit": 20}
+        mock_user_profile_config.return_value = {
+            "play_count": 1.0,
+            "starred": 2.0,
+            "in_playlist": 1.5,
+            "time_decay_days": 30,
+            "min_decay": 0.1
+        }
+        mock_api_config.return_value = {
+            "timeout": 30,
+            "max_tokens": 1000,
+            "temperature": 0.7
+        }
+        mock_allowed_labels.return_value = {
+            "mood": {"happy", "sad"},
+            "genre": {"pop", "rock"}
+        }
+
+        result = validate_config()
+
+        assert result["status"] == "ok"
+        assert any("语义数据库目录不存在" in w for w in result["warnings"])
+
+    @patch('src.core.config_validator.get_api_key')
+    @patch('src.core.config_validator.NAV_DB', '/tmp/test/navidrome.db')
+    @patch('src.core.config_validator.SEM_DB', '/tmp/test/semantic.db')
+    @patch('src.core.config_validator.LOG_DIR', '/tmp/test/logs')
+    @patch('src.core.config_validator.EXPORT_DIR', '/tmp/test/exports')
+    @patch('src.core.config_validator.BASE_URL', 'https://api.example.com/v1')
+    @patch('src.core.config_validator.MODEL', 'test-model')
+    @patch('src.core.config_validator.get_recommend_config')
+    @patch('src.core.config_validator.get_user_profile_config')
+    @patch('src.core.config_validator.get_tagging_api_config')
+    @patch('src.core.config_validator.get_allowed_labels')
+    @patch('src.core.config_validator.CORS_ORIGINS', ['http://localhost:5173'])
+    @patch('pathlib.Path.exists', return_value=False)
+    @patch('pathlib.Path.mkdir')
+    def test_validate_config_mkdir_permission_error(
+        self,
+        mock_mkdir,
+        mock_exists,
+        mock_allowed_labels,
+        mock_api_config,
+        mock_user_profile_config,
+        mock_recommend_config,
+        mock_api_key
+    ):
+        """测试目录创建失败（权限错误）"""
+        mock_mkdir.side_effect = PermissionError("Permission denied")
+
+        mock_api_key.return_value = "valid_api_key_1234567890"
+        mock_recommend_config.return_value = {"default_limit": 20}
+        mock_user_profile_config.return_value = {
+            "play_count": 1.0,
+            "starred": 2.0,
+            "in_playlist": 1.5,
+            "time_decay_days": 30,
+            "min_decay": 0.1
+        }
+        mock_api_config.return_value = {
+            "timeout": 30,
+            "max_tokens": 1000,
+            "temperature": 0.7
+        }
+        mock_allowed_labels.return_value = {
+            "mood": {"happy", "sad"},
+            "genre": {"pop", "rock"}
+        }
+
+        result = validate_config()
+
+        assert result["status"] == "error"
+        assert any("无法创建" in e for e in result["errors"])
+
 
 class TestValidateOnStartup:
     """测试 validate_on_startup 函数"""
