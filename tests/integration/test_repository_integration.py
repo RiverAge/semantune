@@ -452,6 +452,7 @@ class TestSongRepositoryIntegration:
         nav_conn.execute("""
             CREATE TABLE media_file (
                 id TEXT PRIMARY KEY,
+                path TEXT,
                 title TEXT,
                 artist TEXT,
                 album TEXT,
@@ -474,8 +475,8 @@ class TestSongRepositoryIntegration:
 
         # 添加 Navidrome 歌曲
         nav_conn.execute(
-            "INSERT INTO media_file (id, title, artist, album, duration) VALUES (?, ?, ?, ?, ?)",
-            ("song_1", "Test Song", "Test Artist", "Test Album", 180)
+            "INSERT INTO media_file (id, path, title, artist, album, duration) VALUES (?, ?, ?, ?, ?, ?)",
+            ("song_1", "/path/to/song_1.mp3", "Test Song", "Test Artist", "Test Album", 180)
         )
         nav_conn.commit()
 

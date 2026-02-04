@@ -3,6 +3,7 @@
 """
 
 import pytest
+import logging
 from unittest.mock import Mock, patch
 
 from src.cli.tagging_cli import TaggingCLI
@@ -53,7 +54,7 @@ class TestTaggingCLI:
             "remaining": 1
         }
 
-    def test_main_success(self, sample_result, capsys):
+    def test_main_success(self, sample_result, caplog):
         """测试成功生成标签"""
         with patch('src.cli.tagging_cli.ServiceFactory') as mock_factory:
             mock_tagging_service = Mock()
@@ -62,15 +63,14 @@ class TestTaggingCLI:
 
             TaggingCLI.main()
 
-            captured = capsys.readouterr()
-            assert "标签生成完成" in captured.out
-            assert "总歌曲数: 10" in captured.out
-            assert "已标记: 5" in captured.out
-            assert "本次处理: 3" in captured.out
-            assert "失败: 1" in captured.out
-            assert "剩余: 1" in captured.out
+            assert "标签生成完成" in caplog.text
+            assert "总歌曲数: 10" in caplog.text
+            assert "已标记: 5" in caplog.text
+            assert "本次处理: 3" in caplog.text
+            assert "失败: 1" in caplog.text
+            assert "剩余: 1" in caplog.text
 
-    def test_main_failure(self, capsys):
+    def test_main_failure(self, caplog):
         """测试标签生成失败"""
         with patch('src.cli.tagging_cli.ServiceFactory') as mock_factory:
             mock_tagging_service = Mock()
@@ -80,7 +80,7 @@ class TestTaggingCLI:
             with pytest.raises(Exception):
                 TaggingCLI.main()
 
-    def test_main_no_songs_to_process(self, capsys):
+    def test_main_no_songs_to_process(self, caplog):
         """测试没有歌曲需要处理"""
         result_no_processing = {
             "total": 5,
@@ -97,11 +97,10 @@ class TestTaggingCLI:
 
             TaggingCLI.main()
 
-            captured = capsys.readouterr()
-            assert "标签生成完成" in captured.out
-            assert "本次处理: 0" in captured.out
+            assert "标签生成完成" in caplog.text
+            assert "本次处理: 0" in caplog.text
 
-    def test_main_all_failures(self, capsys):
+    def test_main_all_failures(self, caplog):
         """测试所有歌曲都失败"""
         result_all_failures = {
             "total": 3,
@@ -118,11 +117,10 @@ class TestTaggingCLI:
 
             TaggingCLI.main()
 
-            captured = capsys.readouterr()
-            assert "标签生成完成" in captured.out
-            assert "失败: 3" in captured.out
+            assert "标签生成完成" in caplog.text
+            assert "失败: 3" in caplog.text
 
-    def test_preview_success(self, sample_songs, sample_tags, capsys):
+    def test_preview_success(self, sample_songs, sample_tags, caplog):
         """测试成功预览标签生成"""
         with patch('src.cli.tagging_cli.nav_db_context') as mock_nav:
             mock_nav_conn = Mock()
@@ -144,13 +142,12 @@ class TestTaggingCLI:
 
                     TaggingCLI.preview()
 
-                    captured = capsys.readouterr()
-                    assert "预览标签生成" in captured.out
-                    assert "Test Song 1" in captured.out
-                    assert "happy" in captured.out
-                    assert "0.85" in captured.out
+                    assert "预览标签生成" in caplog.text
+                    assert "Test Song 1" in caplog.text
+                    assert "happy" in caplog.text
+                    assert "0.85" in caplog.text
 
-    def test_preview_partial_failure(self, sample_songs, sample_tags, capsys):
+    def test_preview_partial_failure(self, sample_songs, sample_tags, caplog):
         """测试预览时部分失败"""
         with patch('src.cli.tagging_cli.nav_db_context') as mock_nav:
             mock_nav_conn = Mock()
@@ -179,11 +176,10 @@ class TestTaggingCLI:
 
                     TaggingCLI.preview()
 
-                    captured = capsys.readouterr()
-                    assert "预览标签生成" in captured.out
-                    assert "生成失败" in captured.out
+                    assert "预览标签生成" in caplog.text
+                    assert "生成失败" in caplog.text
 
-    def test_preview_empty_songs(self, capsys):
+    def test_preview_empty_songs(self, caplog):
         """测试空歌曲列表预览"""
         with patch('src.cli.tagging_cli.nav_db_context') as mock_nav:
             mock_nav_conn = Mock()
@@ -200,10 +196,9 @@ class TestTaggingCLI:
 
                     TaggingCLI.preview()
 
-                    captured = capsys.readouterr()
-                    assert "预览标签生成" in captured.out
+                    assert "预览标签生成" in caplog.text
 
-    def test_preview_all_fields_displayed(self, sample_songs, capsys):
+    def test_preview_all_fields_displayed(self, sample_songs, caplog):
         """测试预览显示所有标签字段"""
         tags_all_fields = {
             "mood": "epic",
@@ -233,11 +228,10 @@ class TestTaggingCLI:
                     })
                     mock_factory.create_tagging_service = Mock(return_value=mock_tagging_service)
 
-                    Tagging.cli.preview()
+                    TaggingCLI.preview()
 
-                    captured = capsys.readouterr()
-                    assert "Mood:" in captured.out
-                    assert "Energy:" in captured.out
-                    assert "Genre:" in captured.out
-                    assert "Region:" in captured.out
-                    assert "Confidence:" in captured.out
+                    assert "Mood:" in caplog.text
+                    assert "Energy:" in caplog.text
+                    assert "Genre:" in caplog.text
+                    assert "Region:" in caplog.text
+                    assert "Confidence:" in caplog.text

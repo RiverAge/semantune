@@ -3,6 +3,7 @@
 """
 
 import pytest
+import logging
 from unittest.mock import Mock, patch, MagicMock
 from io import StringIO
 import sys
@@ -51,8 +52,9 @@ class TestRecommendCLI:
             }
         ]
 
-    def test_main_single_user(self, sample_users, sample_recommendations, capsys):
+    def test_main_single_user(self, sample_users, sample_recommendations, capsys, caplog):
         """测试单个用户场景 - 自动选择"""
+        caplog.set_level(logging.INFO)
         with patch('src.cli.recommend_cli.nav_db_context') as mock_nav:
             mock_nav_conn = Mock()
             mock_nav.return_value.__enter__ = Mock(return_value=mock_nav_conn)
@@ -70,14 +72,14 @@ class TestRecommendCLI:
 
                     RecommendCLI.main()
 
-                    captured = capsys.readouterr()
-                    assert "test_user_1" in captured.out
-                    assert "推荐完成" in captured.out
-                    assert "Test Song 1" in captured.out
-                    assert "Test Song 2" in captured.out
+                    assert "test_user_1" in caplog.text
+                    assert "推荐完成" in caplog.text
+                    assert "Test Song 1" in caplog.text
+                    assert "Test Song 2" in caplog.text
 
-    def test_main_multiple_users(self, sample_users, sample_recommendations, capsys):
+    def test_main_multiple_users(self, sample_users, sample_recommendations, caplog):
         """测试多用户场景 - 模拟选择第一个用户"""
+        caplog.set_level(logging.INFO)
         with patch('src.cli.recommend_cli.nav_db_context') as mock_nav:
             mock_nav_conn = Mock()
             mock_nav.return_value.__enter__ = Mock(return_value=mock_nav_conn)
@@ -96,13 +98,13 @@ class TestRecommendCLI:
                     with patch('builtins.input', return_value='1'):
                         RecommendCLI.main()
 
-                    captured = capsys.readouterr()
-                    assert "可用用户" in captured.out
-                    assert "test_user_1" in captured.out
-                    assert "test_user_2" in captured.out
+                    assert "可用用户" in caplog.text
+                    assert "test_user_1" in caplog.text
+                    assert "test_user_2" in caplog.text
 
-    def test_main_no_users(self, capsys):
+    def test_main_no_users(self, caplog):
         """测试无用户场景"""
+        caplog.set_level(logging.INFO)
         with patch('src.cli.recommend_cli.nav_db_context') as mock_nav:
             mock_nav_conn = Mock()
             mock_nav.return_value.__enter__ = Mock(return_value=mock_nav_conn)
@@ -114,11 +116,11 @@ class TestRecommendCLI:
             with patch('src.cli.recommend_cli.UserRepository', return_value=mock_user_repo):
                 RecommendCLI.main()
 
-                captured = capsys.readouterr()
-                assert "未找到用户" in captured.out
+                assert "未找到用户" in caplog.text
 
-    def test_main_recommendation_failure(self, sample_users, capsys):
+    def test_main_recommendation_failure(self, sample_users, caplog):
         """测试推荐生成失败"""
+        caplog.set_level(logging.INFO)
         with patch('src.cli.recommend_cli.nav_db_context') as mock_nav:
             mock_nav_conn = Mock()
             mock_nav.return_value.__enter__ = Mock(return_value=mock_nav_conn)
@@ -137,8 +139,9 @@ class TestRecommendCLI:
                     with pytest.raises(Exception):
                         RecommendCLI.main()
 
-    def test_main_empty_recommendations(self, sample_users, capsys):
+    def test_main_empty_recommendations(self, sample_users, caplog):
         """测试空推荐列表"""
+        caplog.set_level(logging.INFO)
         with patch('src.cli.recommend_cli.nav_db_context') as mock_nav:
             mock_nav_conn = Mock()
             mock_nav.return_value.__enter__ = Mock(return_value=mock_nav_conn)
@@ -156,12 +159,12 @@ class TestRecommendCLI:
 
                     RecommendCLI.main()
 
-                    captured = capsys.readouterr()
-                    assert "推荐完成" in captured.out
-                    assert "共 0 首歌曲" in captured.out
+                    assert "推荐完成" in caplog.text
+                    assert "共 0 首歌曲" in caplog.text
 
-    def test_main_long_song_names(self, sample_users, capsys):
+    def test_main_long_song_names(self, sample_users, caplog):
         """测试长歌曲/歌手名称的截断显示"""
+        caplog.set_level(logging.INFO)
         long_recommendations = [
             {
                 "file_id": "song1",
@@ -192,20 +195,17 @@ class TestRecommendCLI:
 
                     RecommendCLI.main()
 
-                    captured = capsys.readouterr()
-                    assert ".." in captured.out
-                    assert "推荐完成" in captured.out
+                    assert ".." in caplog.text
+                    assert "推荐完成" in caplog.text
 
-    def test_main_missing_optional_fields(self, sample_users, capsys):
+    def test_main_missing_optional_fields(self, sample_users, caplog):
         """测试缺少可选字段的歌曲"""
+        caplog.set_level(logging.INFO)
         recommendations_without_fields = [
             {
                 "file_id": "song1",
                 "title": "Song 1",
                 "artist": "Artist 1",
-                "mood": "happy",
-                "energy": "medium",
-                "genre": "pop",
                 "similarity": 0.92
             }
         ]
@@ -227,12 +227,12 @@ class TestRecommendCLI:
 
                     RecommendCLI.main()
 
-                    captured = capsys.readouterr()
-                    assert "推荐完成" in captured.out
-                    assert "N/A" in captured.out
+                    assert "推荐完成" in caplog.text
+                    assert "N/A" in caplog.text
 
-    def test_main_user_prompt_number(self, sample_users, sample_recommendations, capsys):
+    def test_main_user_prompt_number(self, sample_users, sample_recommendations, caplog):
         """测试用户输入数字选择"""
+        caplog.set_level(logging.INFO)
         with patch('src.cli.recommend_cli.nav_db_context') as mock_nav:
             mock_nav_conn = Mock()
             mock_nav.return_value.__enter__ = Mock(return_value=mock_nav_conn)
@@ -252,5 +252,4 @@ class TestRecommendCLI:
                     with patch('builtins.input', side_effect=user_inputs):
                         RecommendCLI.main()
 
-                    captured = capsys.readouterr()
-                    assert "test_user_2" in captured.out
+                    assert "test_user_2" in caplog.text

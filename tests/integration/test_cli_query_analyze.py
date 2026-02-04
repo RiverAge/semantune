@@ -3,6 +3,7 @@
 """
 
 import pytest
+import logging
 from unittest.mock import Mock, patch
 
 from src.cli.query_cli import QueryCLI
@@ -41,8 +42,9 @@ class TestQueryCLI:
             }
         ]
 
-    def test_main_success(self, sample_scenes, sample_songs, capsys):
+    def test_main_success(self, sample_scenes, sample_songs, caplog):
         """测试成功查询"""
+        caplog.set_level(logging.INFO)
         with patch('src.cli.query_cli.ServiceFactory') as mock_factory:
             mock_query_service = Mock()
             mock_query_service.get_available_scenes = Mock(return_value=sample_scenes)
@@ -52,25 +54,29 @@ class TestQueryCLI:
             with patch('builtins.input', return_value='1'):
                 QueryCLI.main()
 
-            captured = capsys.readouterr()
-            assert "可用场景" in captured.out
-            assert "Study" in captured.out
-            assert "查询完成" in captured.out
-            assert "共 2 首歌曲" in captured.out
-            assert "Study Song 1" in captured.out
+            assert "可用场景" in caplog.text
+            assert "查询完成" in caplog.text
+            assert "Study" in caplog.text
+            assert "Song" in caplog.text
+            assert "查询完成" in caplog.text
+            assert "共 2 首歌曲" in caplog.text
+            assert "Study Song 1" in caplog.text
 
-    def test_main_no_scenes(self, capsys):
+    def test_main_no_scenes(self, caplog):
         """测试没有可用场景"""
+        caplog.set_level(logging.INFO)
         with patch('src.cli.query_cli.ServiceFactory') as mock_factory:
             mock_query_service = Mock()
             mock_query_service.get_available_scenes = Mock(return_value=[])
             mock_factory.create_query_service = Mock(return_value=mock_query_service)
 
-            with pytest.raises(IndexError):
-                QueryCLI.main()
+            with patch('builtins.input', return_value='1'):
+                with pytest.raises(IndexError):
+                    QueryCLI.main()
 
-    def test_main_empty_results(self, sample_scenes, capsys):
+    def test_main_empty_results(self, sample_scenes, caplog):
         """测试空查询结果"""
+        caplog.set_level(logging.INFO)
         with patch('src.cli.query_cli.ServiceFactory') as mock_factory:
             mock_query_service = Mock()
             mock_query_service.get_available_scenes = Mock(return_value=sample_scenes)
@@ -80,11 +86,12 @@ class TestQueryCLI:
             with patch('builtins.input', return_value='1'):
                 QueryCLI.main()
 
-            captured = capsys.readouterr()
-            assert "共 0 首歌曲" in captured.out
+            # captured = caplog.readouterr()
+            assert "共 0 首歌曲" in caplog.text
 
-    def test_main_long_names(self, capsys):
+    def test_main_long_names(self, caplog):
         """测试长歌曲名称截断"""
+        caplog.set_level(logging.INFO)
         long_songs = [
             {
                 "file_id": "song1",
@@ -105,11 +112,12 @@ class TestQueryCLI:
             with patch('builtins.input', return_value='1'):
                 QueryCLI.main()
 
-            captured = capsys.readouterr()
-            assert ".." in captured.out
+            # captured = caplog.readouterr()
+            assert ".." in caplog.text
 
-    def test_main_missing_fields(self, capsys):
+    def test_main_missing_fields(self, caplog):
         """测试缺少可选字段的歌曲"""
+        caplog.set_level(logging.INFO)
         incomplete_songs = [
             {
                 "file_id": "song1",
@@ -127,8 +135,8 @@ class TestQueryCLI:
             with patch('builtins.input', return_value='1'):
                 QueryCLI.main()
 
-            captured = capsys.readouterr()
-            assert "N/A" in captured.out
+            # captured = caplog.readouterr()
+            assert "N/A" in caplog.text
 
 
 class TestAnalyzeCLI:
@@ -178,8 +186,9 @@ class TestAnalyzeCLI:
             }
         }
 
-    def test_main_success(self, sample_overview, sample_distribution, sample_combinations, sample_quality, capsys):
+    def test_main_success(self, sample_overview, sample_distribution, sample_combinations, sample_quality, caplog):
         """测试成功分析"""
+        caplog.set_level(logging.INFO)
         with patch('src.cli.analyze_cli.ServiceFactory') as mock_factory:
             mock_analyze_service = Mock()
             mock_analyze_service.get_overview = Mock(return_value=sample_overview)
@@ -190,50 +199,45 @@ class TestAnalyzeCLI:
 
             AnalyzeCLI.main()
 
-            captured = capsys.readouterr()
-            assert "分析数据" in captured.out
-            assert "数据概览" in captured.out
-            assert "总歌曲数: 100" in captured.out
-            assert "平均置信度: 0.82" in captured.out
-            assert "mood 分布" in captured.out
-            assert "happy" in captured.out
-            assert "Mood + Energy 组合" in captured.out
-            assert "数据质量分析" in captured.out
-            assert "分析完成" in captured.out
+            # captured = caplog.readouterr()
+            assert "分析数据" in caplog.text
+            assert "数据概览" in caplog.text
+            assert "总歌曲数: 100" in caplog.text
+            assert "平均置信度: 0.82" in caplog.text
+            assert "mood 分布" in caplog.text
+            assert "happy" in caplog.text
+            assert "Mood + Energy 组合" in caplog.text
+            assert "数据质量分析" in caplog.text
+            assert "分析完成" in caplog.text
 
-    def test_main_empty_distribution(self, sample_overview, capsys):
-        """测试空分布"""
-        empty_distribution = {
-            "field_name": "mood",
-            "total": 0,
-            "distribution": []
-        }
-
+    def test_main_empty_distribution(self, sample_overview, caplog):
+        """测试空分布数据"""
+        caplog.set_level(logging.INFO)
         with patch('src.cli.analyze_cli.ServiceFactory') as mock_factory:
             mock_analyze_service = Mock()
             mock_analyze_service.get_overview = Mock(return_value=sample_overview)
-            mock_analyze_service.get_distribution = Mock(return_value=empty_distribution)
+            mock_analyze_service.get_distribution = Mock(return_value={"field_name": "mood", "total": 0, "distribution": []})
             mock_analyze_service.get_combinations = Mock(return_value={"combinations": []})
             mock_analyze_service.get_quality_stats = Mock(return_value={"none_stats": {}})
             mock_factory.create_analyze_service = Mock(return_value=mock_analyze_service)
 
             AnalyzeCLI.main()
 
-            captured = capsys.readouterr()
-            assert "分析完成" in captured.out
+            # captured = caplog.readouterr()
+            assert "分析完成" in caplog.text
 
-    def test_main_no_songs(self, capsys):
-        """测试没有歌曲数据"""
-        empty_overview = {
-            "total_songs": 0,
-            "average_confidence": 0.0,
-            "low_confidence_count": 0,
-            "low_confidence_percentage": 0.0
-        }
-
+    def test_main_no_songs(self, caplog):
+        """测试空数据库"""
+        caplog.set_level(logging.INFO)
         with patch('src.cli.analyze_cli.ServiceFactory') as mock_factory:
             mock_analyze_service = Mock()
-            mock_analyze_service.get_overview = Mock(return_value=empty_overview)
+            mock_analyze_service.get_overview = Mock(return_value={
+                "total_songs": 0, 
+                "average_confidence": 0, 
+                "high_confidence_count": 0,
+                "low_confidence_count": 0,
+                "low_confidence_percentage": 0
+            })
             mock_analyze_service.get_distribution = Mock(return_value={
                 "field_name": "mood", "total": 0, "distribution": []
             })
@@ -243,12 +247,13 @@ class TestAnalyzeCLI:
 
             AnalyzeCLI.main()
 
-            captured = capsys.readouterr()
-            assert "总歌曲数: 0" in captured.out
-            assert "分析完成" in captured.out
+            # captured = caplog.readouterr()
+            assert "总歌曲数: 0" in caplog.text
+            assert "分析完成" in caplog.text
 
-    def test_main_failure_during_analysis(self, sample_overview, capsys):
+    def test_main_failure_during_analysis(self, sample_overview, caplog):
         """测试分析过程中出错"""
+        caplog.set_level(logging.INFO)
         with patch('src.cli.analyze_cli.ServiceFactory') as mock_factory:
             mock_analyze_service = Mock()
             mock_analyze_service.get_overview = Mock(return_value=sample_overview)
@@ -258,31 +263,15 @@ class TestAnalyzeCLI:
             with pytest.raises(Exception):
                 AnalyzeCLI.main()
 
-    def test_main_multiple_fields(self, sample_overview, sample_quality, capsys):
-        """测试分析多个字段"""
+    def test_main_multiple_fields(self, sample_overview, sample_quality, caplog):
+        """测试多字段分析"""
+        caplog.set_level(logging.INFO)
         distributions = {
-            "mood": {
-                "field_name": "mood",
-                "total": 100,
-                "distribution": [{"label": "happy", "count": 30, "percentage": 30.0}]
-            },
-            "energy": {
-                "field_name": "energy",
-                "total": 100,
-                "distribution": [{"label": "high", "count": 50, "percentage": 50.0}]
-            },
-            "genre": {
-                "field_name": "genre",
-                "total": 100,
-                "distribution": [{"label": "pop", "count": 40, "percentage": 40.0}]
-            },
-            "region": {
-                "field_name": "region",
-                "total": 100,
-                "distribution": [{"label": "Western", "count": 60, "percentage": 60.0}]
-            }
+            "mood": {"field_name": "mood", "total": 100, "distribution": [{"label": "happy", "count": 30, "percentage": 30.0}]},
+            "energy": {"field_name": "energy", "total": 100, "distribution": [{"label": "high", "count": 50, "percentage": 50.0}]},
+            "genre": {"field_name": "genre", "total": 100, "distribution": [{"label": "pop", "count": 40, "percentage": 40.0}]},
+            "region": {"field_name": "region", "total": 100, "distribution": [{"label": "Western", "count": 60, "percentage": 60.0}]}
         }
-
         with patch('src.cli.analyze_cli.ServiceFactory') as mock_factory:
             mock_analyze_service = Mock()
             mock_analyze_service.get_overview = Mock(return_value=sample_overview)
@@ -293,8 +282,8 @@ class TestAnalyzeCLI:
 
             AnalyzeCLI.main()
 
-            captured = capsys.readouterr()
-            assert "mood 分布" in captured.out
-            assert "energy 分布" in captured.out
-            assert "genre 分布" in captured.out
-            assert "region 分布" in captured.out
+            # captured = caplog.readouterr()
+            assert "mood 分布" in caplog.text
+            assert "energy 分布" in caplog.text
+            assert "genre 分布" in caplog.text
+            assert "region 分布" in caplog.text
