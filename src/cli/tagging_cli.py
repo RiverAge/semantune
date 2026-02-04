@@ -3,8 +3,10 @@
 """
 
 import logging
+from src.core.database import nav_db_context
 from src.services.service_factory import ServiceFactory
 from src.utils.logger import setup_logger
+from src.repositories.navidrome_repository import NavidromeRepository
 
 logger = setup_logger("cli", level=logging.INFO)
 
@@ -38,9 +40,6 @@ class TaggingCLI:
         logger.info("👁️  预览标签生成...")
 
         try:
-            from src.core.database import nav_db_context
-            from src.repositories.navidrome_repository import NavidromeRepository
-
             with nav_db_context() as nav_conn:
                 nav_repo = NavidromeRepository(nav_conn)
                 songs = nav_repo.get_all_songs()

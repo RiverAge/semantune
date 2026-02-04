@@ -27,11 +27,14 @@ def find_user_by_id_or_username(
         HTTPException: 当用户未找到时抛出 404 错误
     """
     if user_id:
-        # 直接通过 id 查找
-        user = user_repo.get_first_user()
-        # 由于 UserRepository 没有 get_user_by_id 方法，这里简化处理
-        # 如果传入 user_id，直接返回（假设用户存在）
-        return {"id": user_id, "name": ""}
+        # 通过 id 查找
+        user = user_repo.get_user_by_id(user_id)
+        if not user:
+            raise HTTPException(
+                status_code=404,
+                detail=f"用户ID '{user_id}' 不存在"
+            )
+        return user
 
     elif username:
         # 通过 username 查找

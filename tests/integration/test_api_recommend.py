@@ -68,12 +68,13 @@ class TestRecommendAPI:
             mock_user_repo = Mock()
             mock_user_repo.get_first_user = Mock(return_value=sample_user)
             mock_user_repo.get_user_songs = Mock(return_value=["song1", "song2"])
+            mock_user_repo.get_user_by_id = Mock(return_value=sample_user)
 
             mock_recommend_service = Mock()
             mock_recommend_service.recommend = Mock(return_value=sample_recommendations)
 
             with patch('src.api.routes.recommend.endpoints.UserRepository', return_value=mock_user_repo):
-                with patch('src.api.routes.recommend.endpoints.ServiceFactory', return_value=mock_recommend_service):
+                with patch('src.api.routes.recommend.endpoints.ServiceFactory.create_recommend_service', return_value=mock_recommend_service):
                     request_data = {
                         "user_id": "user_123",
                         "limit": 30,
@@ -101,12 +102,13 @@ class TestRecommendAPI:
             mock_user_repo = Mock()
             mock_user_repo.get_first_user = Mock(return_value=sample_user)
             mock_user_repo.get_user_songs = Mock(return_value=[])
+            mock_user_repo.get_user_by_id = Mock(return_value=sample_user)
 
             mock_recommend_service = Mock()
             mock_recommend_service.recommend = Mock(return_value=sample_recommendations)
 
             with patch('src.api.routes.recommend.endpoints.UserRepository', return_value=mock_user_repo):
-                with patch('src.api.routes.recommend.endpoints.ServiceFactory', return_value=mock_recommend_service):
+                with patch('src.api.routes.recommend.endpoints.ServiceFactory.create_recommend_service', return_value=mock_recommend_service):
                     request_data = {
                         "limit": 30
                     }
@@ -128,6 +130,7 @@ class TestRecommendAPI:
 
             mock_user_repo = Mock()
             mock_user_repo.get_first_user = Mock(return_value=None)
+            mock_user_repo.get_user_by_id = Mock(return_value=None)
 
             with patch('src.api.routes.recommend.endpoints.UserRepository', return_value=mock_user_repo):
                 request_data = {
@@ -174,7 +177,7 @@ class TestRecommendAPI:
             mock_recommend_service.recommend = Mock(return_value=sample_recommendations)
 
             with patch('src.api.routes.recommend.endpoints.UserRepository', return_value=mock_user_repo):
-                with patch('src.api.routes.recommend.endpoints.ServiceFactory', return_value=mock_recommend_service):
+                with patch('src.api.routes.recommend.endpoints.ServiceFactory.create_recommend_service', return_value=mock_recommend_service):
                     response = client.get("/api/v1/recommend/list?username=test_user&limit=30")
 
                     assert response.status_code == 200
@@ -236,7 +239,7 @@ class TestRecommendAPI:
             ])
 
             with patch('src.api.routes.recommend.endpoints.UserRepository', return_value=mock_user_repo):
-                with patch('src.api.routes.recommend.endpoints.ServiceFactory', return_value=mock_profile_service):
+                with patch('src.api.routes.recommend.endpoints.ServiceFactory.create_profile_service', return_value=mock_profile_service):
                     with patch('src.api.routes.recommend.endpoints.SemanticRepository', return_value=mock_sem_repo):
                         response = client.get("/api/v1/recommend/profile/test_user")
 

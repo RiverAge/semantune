@@ -13,6 +13,7 @@ from src.core.database import nav_db_context, sem_db_context, dbs_context
 from src.core.response import ApiResponse
 from src.core.exceptions import SemantuneException
 from src.repositories.user_repository import UserRepository
+from src.repositories.semantic_repository import SemanticRepository
 from src.services.service_factory import ServiceFactory
 from src.utils.logger import setup_logger
 from .models import RecommendRequest, RecommendResponse
@@ -27,7 +28,7 @@ logger = setup_logger("api", level=log_level, console_level=log_level)
 router = APIRouter()
 
 
-@router.post("/", response_model=RecommendResponse)
+@router.post("/", response_model=ApiResponse[RecommendResponse])
 async def get_recommendations(request: RecommendRequest):
     """
     获取个性化推荐
@@ -198,7 +199,6 @@ async def get_user_profile(username: str):
             played_songs = user_repo.get_user_songs(user_id)
 
             # 使用语义仓库获取标签统计
-            from src.repositories.semantic_repository import SemanticRepository
             sem_repo = SemanticRepository(sem_conn)
 
             if played_songs:
@@ -292,7 +292,6 @@ async def export_all(
             """, (user_id,)).fetchall()
 
             # 获取语义标签
-            from src.repositories.semantic_repository import SemanticRepository
             sem_repo = SemanticRepository(sem_conn)
 
             # 创建Markdown内容
