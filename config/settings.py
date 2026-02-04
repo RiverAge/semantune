@@ -14,8 +14,10 @@ load_dotenv()
 # 项目根目录
 BASE_DIR = Path(__file__).parent.parent
 
-# 项目版本
-VERSION = "1.4.0"
+# 导入版本号 - 单一来源
+import sys
+sys.path.insert(0, str(BASE_DIR / "src"))
+from __init__ import __version__ as VERSION
 
 # 数据库路径
 NAV_DB = str(BASE_DIR / "data" / "navidrome.db")

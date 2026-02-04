@@ -3,11 +3,14 @@
 """
 
 from typing import Dict, Any, List
+import logging
 
 from config.settings import MODEL
 from src.repositories.navidrome_repository import NavidromeRepository
 from src.repositories.semantic_repository import SemanticRepository
 from .llm_client import LLMClient
+
+logger = logging.getLogger(__name__)
 
 
 class TaggingService:
@@ -65,7 +68,7 @@ class TaggingService:
             标签结果列表
         """
         results = []
-        for song in songs:
+        for idx, song in enumerate(songs, 1):
             try:
                 result = self.generate_tag(
                     title=song['title'],
@@ -77,6 +80,7 @@ class TaggingService:
                     "data": result
                 })
             except Exception as e:
+                logger.error(f"生成标签失败 [{idx}/{len(songs)}]: {song.get('title', '')} - {song.get('artist', '')} - {str(e)}", exc_info=True)
                 results.append({
                     "success": False,
                     "error": str(e),
@@ -107,7 +111,7 @@ class TaggingService:
         processed = 0
         failed = 0
 
-        for song in untagged_songs:
+        for idx, song in enumerate(untagged_songs, 1):
             try:
                 result = self.generate_tag(
                     title=song['title'],
@@ -126,8 +130,12 @@ class TaggingService:
                     model=MODEL
                 )
                 processed += 1
-            except Exception:
+                logger.info(f"处理进度 [{idx}/{len(untagged_songs)}]: {song['title']} - {song['artist']}")
+            except Exception as e:
+                logger.error(f"处理歌曲失败 [{idx}/{len(untagged_songs)}]: {song['title']} - {song['artist']} - {str(e)}", exc_info=True)
                 failed += 1
+
+        logger.info(f"处理完成: 总数={total}, 已标记={len(tagged_ids)}, 本次处理={processed}, 失败={failed}, 剩余={len(untagged_songs) - processed - failed}")
 
         return {
             "total": total,

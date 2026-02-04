@@ -16,6 +16,7 @@ from src.repositories.user_repository import UserRepository
 from src.services.service_factory import ServiceFactory
 from src.utils.logger import setup_logger
 from .models import RecommendRequest, RecommendResponse
+from .utils import find_user_id_by_username, find_user_by_id_or_username
 
 # 从环境变量读取日志级别，默认为 INFO
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -40,15 +41,9 @@ async def get_recommendations(request: RecommendRequest):
         with dbs_context() as (nav_conn, sem_conn):
             user_repo = UserRepository(nav_conn)
 
-            # 获取用户ID
-            if request.user_id:
-                user_id = request.user_id
-            else:
-                # API 环境下自动选择第一个用户
-                user = user_repo.get_first_user()
-                if not user:
-                    raise HTTPException(status_code=404, detail="未找到用户")
-                user_id = user['id']
+            # 获取用户信息
+            user = find_user_by_id_or_username(user_repo, user_id=request.user_id)
+            user_id = user['id']
 
             # 获取用户歌曲数
             user_songs = user_repo.get_user_songs(user_id)
@@ -124,21 +119,16 @@ async def get_recommendations_get(
     try:
         with dbs_context() as (nav_conn, sem_conn):
             user_repo = UserRepository(nav_conn)
-            users = user_repo.get_all_users()
 
-            # 查找用户
-            user_id = None
-            for user in users:
-                if user['name'] == username:
-                    user_id = user['id']
-                    break
-
-            if not user_id:
+            # 查找用户ID
+            try:
+                user_id = find_user_id_by_username(user_repo, username)
+            except HTTPException as e:
                 logger.warning(f"用户 {username} 不存在")
                 return {
                     "success": False,
                     "error": {
-                        "message": f"用户 {username} 不存在",
+                        "message": str(e.detail),
                         "type": "user_not_found"
                     }
                 }
@@ -177,16 +167,11 @@ async def get_user_profile(username: str):
     try:
         with dbs_context() as (nav_conn, sem_conn):
             user_repo = UserRepository(nav_conn)
-            users = user_repo.get_all_users()
 
-            # 查找用户
-            user_id = None
-            for user in users:
-                if user['name'] == username:
-                    user_id = user['id']
-                    break
-
-            if not user_id:
+            # 查找用户ID
+            try:
+                user_id = find_user_id_by_username(user_repo, username)
+            except HTTPException:
                 return {
                     "success": False,
                     "error": {
@@ -284,17 +269,9 @@ async def export_all(
     try:
         with dbs_context() as (nav_conn, sem_conn):
             user_repo = UserRepository(nav_conn)
-            users = user_repo.get_all_users()
 
-            # 查找用户
-            user_id = None
-            for user in users:
-                if user['name'] == username:
-                    user_id = user['id']
-                    break
-
-            if not user_id:
-                raise HTTPException(status_code=404, detail=f"用户 {username} 不存在")
+            # 查找用户ID
+            user_id = find_user_id_by_username(user_repo, username)
 
             # 获取推荐
             recommend_service = ServiceFactory.create_recommend_service(nav_conn, sem_conn)

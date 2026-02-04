@@ -3,8 +3,11 @@
 """
 
 from typing import Any, Dict, Optional
+from fastapi import FastAPI
 from fastapi import HTTPException, Request, status
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
 
 
 class SemantuneException(Exception):
@@ -141,3 +144,57 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
             "path": str(request.url)
         }
     )
+
+
+async def request_validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """
+    请求验证异常处理器 - 处理 FastAPI 的请求参数验证失败
+    
+    Args:
+        request: FastAPI 请求对象
+        exc: 请求验证异常实例
+        
+    Returns:
+        JSONResponse: 格式化的错误响应
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning(f"请求验证失败: {request.url.path} - {exc.errors()}")
+    
+    errors = exc.errors()
+    error_details = [
+        {
+            "field": ".".join(str(loc) for loc in error["loc"]),
+            "message": error["msg"],
+            "type": error["type"]
+        }
+        for error in errors
+    ]
+    
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "success": False,
+            "error": {
+                "message": "请求参数验证失败",
+                "type": "ValidationError",
+                "details": {
+                    "errors": error_details
+                }
+            },
+            "path": str(request.url)
+        }
+    )
+
+
+def setup_exception_handlers(app: FastAPI) -> None:
+    """
+    注册所有异常处理器
+    
+    Args:
+        app: FastAPI 应用实例
+    """
+    app.add_exception_handler(RequestValidationError, request_validation_exception_handler)
+    app.add_exception_handler(HTTPException, http_exception_handler)
+    app.add_exception_handler(SemantuneException, semantune_exception_handler)
+    app.add_exception_handler(Exception, general_exception_handler)

@@ -15,6 +15,7 @@ from src.core.exceptions import (
     semantune_exception_handler,
     http_exception_handler,
     general_exception_handler,
+    request_validation_exception_handler,
     SemantuneException
 )
 from src.core.config_validator import validate_on_startup
@@ -37,9 +38,9 @@ app = FastAPI(
 )
 
 # 注册全局异常处理器
-app.add_exception_handler(SemantuneException, semantune_exception_handler)
+app.add_exception_handler(RequestValidationError, request_validation_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
-app.add_exception_handler(RequestValidationError, http_exception_handler)
+app.add_exception_handler(SemantuneException, semantune_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)
 
 # 配置 CORS - 从环境变量读取允许的来源
