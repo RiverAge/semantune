@@ -161,7 +161,7 @@ export default function BatchTagging({
         {history.length === 0 ? (
           <div className="text-center py-8 text-gray-500">暂无标记记录</div>
         ) : (
-          <div className="space-y-3">
+          <div className="max-h-[600px] overflow-y-auto scroll-smooth pr-2 space-y-3">
             {history.map((item, index) => (
               <div key={index} className="p-3 bg-gray-50 rounded-lg">
                 <div className="flex flex-wrap items-center gap-2 mb-2">
