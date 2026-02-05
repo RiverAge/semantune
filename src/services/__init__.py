@@ -8,6 +8,7 @@ from .recommend_service import RecommendService
 from .query_service import QueryService
 from .analyze_service import AnalyzeService
 from .profile_service import ProfileService
+from .duplicate_detection_service import DuplicateDetectionService
 from .service_factory import ServiceFactory
 
 __all__ = [
@@ -16,5 +17,6 @@ __all__ = [
     'QueryService',
     'AnalyzeService',
     'ProfileService',
+    'DuplicateDetectionService',
     'ServiceFactory',
 ]

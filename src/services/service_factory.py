@@ -18,7 +18,8 @@ from src.services import (
     RecommendService,
     QueryService,
     AnalyzeService,
-    ProfileService
+    ProfileService,
+    DuplicateDetectionService
 )
 
 
@@ -103,3 +104,16 @@ class ServiceFactory:
         nav_repo = UserRepository(nav_conn)
         sem_repo = SemanticRepository(sem_conn)
         return ProfileService(nav_repo, sem_repo)
+
+    @staticmethod
+    def create_duplicate_detection_service(nav_conn: sqlite3.Connection) -> DuplicateDetectionService:
+        """
+        创建重复检测服务
+
+        Args:
+            nav_conn: Navidrome 数据库连接
+
+        Returns:
+            DuplicateDetectionService 实例
+        """
+        return DuplicateDetectionService(nav_conn)
