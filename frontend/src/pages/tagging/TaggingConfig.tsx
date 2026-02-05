@@ -49,8 +49,8 @@ export default function TaggingConfig({
         baseUrl: config.baseUrl,
         model: config.model,
       });
-
-      if (response.success) {
+      const responseData = response as any;
+      if (responseData.success) {
         setIsConfigured(true);
         setShowConfig(false);
         setConfigSuccess('配置已保存');

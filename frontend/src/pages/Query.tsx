@@ -22,9 +22,9 @@ export default function Query() {
   const loadTagOptions = async () => {
     try {
       const response = await queryApi.getTagOptions();
-
-      if (response.success && response.data) {
-        setTagOptions(response.data);
+      const responseData = response as any;
+      if (responseData.success && responseData.data) {
+        setTagOptions(responseData.data);
       }
     } catch (err) {
       console.error('加载标签选项失败:', err);
@@ -36,9 +36,9 @@ export default function Query() {
       setLoading(true);
       setError(null);
       const response = await queryApi.querySongs(filters);
-
-      if (response.success && response.data) {
-        setSongs(response.data);
+      const responseData = response as any;
+      if (responseData.success && responseData.data) {
+        setSongs(responseData.data);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : '查询失败');

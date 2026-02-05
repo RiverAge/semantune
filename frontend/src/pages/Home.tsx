@@ -32,13 +32,13 @@ export default function Home() {
         analyzeApi.getHealth()
       ]);
 
-
-
-      if (statsResponse.success && statsResponse.data) {
-        setStats(statsResponse.data);
+      const statsData = statsResponse as any;
+      const healthData = healthResponse as any;
+      if (statsData.success && statsData.data) {
+        setStats(statsData.data);
       }
-      if (healthResponse.success && healthResponse.data) {
-        setHealth(healthResponse.data);
+      if (healthData.success && healthData.data) {
+        setHealth(healthData.data);
       }
       // @ts-expect-error response.data type issue
       if (healthResponse.success && healthResponse.data) {

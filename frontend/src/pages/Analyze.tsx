@@ -17,9 +17,9 @@ export default function Analyze() {
   const loadUsers = async () => {
     try {
       const response = await analyzeApi.getUsers();
-
-      if (response.success && response.data) {
-        setUsers(response.data.users);
+      const responseData = response as any;
+      if (responseData.success && responseData.data) {
+        setUsers(responseData.data.users);
       }
     } catch (err) {
       console.error('加载用户列表失败:', err);
@@ -32,9 +32,9 @@ export default function Analyze() {
       setLoading(true);
       setError(null);
       const response = await analyzeApi.getUserStats(username);
-
-      if (response.success && response.data) {
-        setUserStats(response.data);
+      const responseData = response as any;
+      if (responseData.success && responseData.data) {
+        setUserStats(responseData.data);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载用户统计失败');
