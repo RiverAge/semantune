@@ -105,14 +105,14 @@ export function useTagging() {
       eventSourceRef.current = taggingApi.streamProgress(
         // onProgress
         (data) => {
-          setStatus({
+          setStatus(prevStatus => ({
             total: data.total,
             processed: data.processed,
             pending: data.total - data.processed,
             failed: 0,
             progress: data.total > 0 ? (data.processed / data.total * 100) : 0,
             task_status: data.status
-          });
+          }));
         },
         // onComplete
         () => {
@@ -120,13 +120,14 @@ export function useTagging() {
           loadStatus(); // 刷新最终状态
           loadHistory(); // 刷新历史记录
           // 显示成功消息
-          if (status && status.processed > 0) {
-            setSuccessMessage(`成功处理了 ${status.processed} 首歌曲`);
-          } else {
-            setSuccessMessage('标签生成任务已完成');
-          }
-          // 3秒后自动隐藏成功消息
-          setTimeout(() => setSuccessMessage(null), 3000);
+          setStatus(prevStatus => {
+            const msg = prevStatus && prevStatus.processed > 0
+              ? `成功处理了 ${prevStatus.processed} 首歌曲`
+              : '标签生成任务已完成';
+            setSuccessMessage(msg);
+            setTimeout(() => setSuccessMessage(null), 3000);
+            return prevStatus || { task_status: 'completed' } as any;
+          });
         },
         // onError
         (err) => {
@@ -176,14 +177,14 @@ export function useTagging() {
       eventSourceRef.current = taggingApi.streamProgress(
         // onProgress
         (data) => {
-          setStatus({
+          setStatus(prevStatus => ({
             total: data.total,
             processed: data.processed,
             pending: data.total - data.processed,
             failed: 0,
             progress: data.total > 0 ? (data.processed / data.total * 100) : 0,
             task_status: data.status
-          });
+          }));
         },
         // onComplete
         () => {
@@ -198,7 +199,7 @@ export function useTagging() {
         }
       );
     }
-  }, [status]);
+  }, [status, isGenerating]);
 
   useEffect(() => {
     // 加载配置

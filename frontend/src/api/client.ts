@@ -176,10 +176,8 @@ export const taggingApi = {
 
   // SSE 流式获取进度
     streamProgress: (onProgress: (data: any) => void, onComplete: () => void, onError: (_error: Error) => void) => {
-    // 获取正确的后端URL
     const isDev = import.meta.env.DEV;
     const streamUrl = isDev ? 'http://localhost:8080/api/v1/tagging/stream' : '/api/v1/tagging/stream';
-    console.log(`SSE 连接URL: ${streamUrl}`);
 
     const eventSource = new EventSource(streamUrl, {
       withCredentials: true
@@ -188,14 +186,10 @@ export const taggingApi = {
     let isCompleted = false;
 
     eventSource.onopen = () => {
-      console.log('SSE 连接已建立');
     };
 
     eventSource.onmessage = (event) => {
-      console.log('SSE 收到消息:', event.data);
-
       if (event.data === '[DONE]') {
-        console.log('SSE 任务完成');
         isCompleted = true;
         eventSource.close();
         onComplete();
@@ -205,20 +199,14 @@ export const taggingApi = {
       try {
         const data = JSON.parse(event.data);
         onProgress(data);
-      } catch (e) {
-        console.log('SSE 收到非JSON消息 (心跳包):', event.data);
+      } catch {
       }
     };
 
     eventSource.onerror = (_error) => {
-      console.log('SSE 连接关闭状态:', eventSource.readyState);
-
-      // EventSource.CLOSED = 2
       if (eventSource.readyState === 2 && !isCompleted) {
-        console.warn('SSE 连接异常关闭');
         onError(new Error('SSE 连接异常关闭'));
       } else {
-        console.log('SSE 连接正常关闭');
         eventSource.close();
         onComplete();
       }
