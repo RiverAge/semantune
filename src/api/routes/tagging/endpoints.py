@@ -147,6 +147,30 @@ async def sync_tags_to_db():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/cleanup")
+async def cleanup_tags():
+    """
+    清理孤儿标签（删除在 Semantune 数据库中存在但在 Navidrome 中已删除的歌曲）
+    """
+    try:
+        with dbs_context() as (nav_conn, sem_conn):
+            tagging_service = ServiceFactory.create_tagging_service(nav_conn, sem_conn)
+            count = tagging_service.cleanup_orphans()
+
+            logger.info(f"清理了 {count} 个孤儿标签")
+
+            return ApiResponse.success_response(
+                data={
+                    "count": count,
+                    "message": f"成功清理了 {count} 个孤儿标签"
+                }
+            )
+
+    except Exception as e:
+        logger.error(f"清理标签失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/status")
 async def get_tagging_status():
     """

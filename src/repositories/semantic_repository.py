@@ -76,6 +76,27 @@ class SemanticRepository:
         """获取数据质量统计"""
         return self.stats.get_quality_stats()
 
+    def delete_songs_by_ids(self, file_ids: List[str]) -> int:
+        """
+        根据 ID 列表删除语义标签（用于清理孤儿项）
+
+        Args:
+            file_ids: 要删除的歌曲 ID 列表
+
+        Returns:
+            删除的记录数量
+        """
+        if not file_ids:
+            return 0
+        
+        placeholders = ','.join('?' * len(file_ids))
+        cursor = self.sem_conn.execute(f"""
+            DELETE FROM music_semantic
+            WHERE file_id IN ({placeholders})
+        """, file_ids)
+        self.sem_conn.commit()
+        return cursor.rowcount
+
     # 保存方法 - 保留在主类中
     def save_song_tags(
         self,

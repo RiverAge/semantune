@@ -145,6 +145,35 @@ class TaggingService:
             "remaining": len(untagged_songs) - processed - failed
         }
 
+    def cleanup_orphans(self) -> int:
+        """
+        清理孤儿标签（删除在 Semantune 库中存在但在 Navidrome 库中已删除的歌曲）
+
+        Returns:
+            清理的记录数量
+        """
+        # 获取 Semantune 中所有的 file_id
+        cursor = self.sem_repo.sem_conn.execute("SELECT file_id FROM music_semantic")
+        sem_ids = {row[0] for row in cursor.fetchall()}
+
+        if not sem_ids:
+            return 0
+
+        # 获取 Navidrome 中所有的歌曲 ID
+        nav_songs = self.nav_repo.get_all_songs()
+        nav_ids = {s['id'] for s in nav_songs}
+
+        # 找出在 Semantune 中但不在 Navidrome 中的 ID
+        orphan_ids = list(sem_ids - nav_ids)
+
+        if orphan_ids:
+            logger.info(f"发现 {len(orphan_ids)} 个孤儿标签，正在清理...")
+            count = self.sem_repo.delete_songs_by_ids(orphan_ids)
+            logger.info(f"成功清理 {count} 个孤儿标签")
+            return count
+        
+        return 0
+
     def get_progress(self) -> Dict[str, Any]:
         """
         获取标签生成进度

@@ -31,8 +31,14 @@ async def run_tagging_task():
 
             nav_repo = NavidromeRepository(nav_conn)
             sem_repo = SemanticRepository(sem_conn)
+            tagging_service = ServiceFactory.create_tagging_service(nav_conn, sem_conn)
 
-            # 获取所有歌曲
+            # 1. 先进行清理：删除在 Navidrome 中已不存在的孤儿标签
+            orphan_count = tagging_service.cleanup_orphans()
+            if orphan_count > 0:
+                logger.info(f"后台任务：已清理 {orphan_count} 个孤儿标签")
+
+            # 2. 获取所有歌曲
             nav_songs = nav_repo.get_all_songs()
 
             # 获取已处理的歌曲ID
