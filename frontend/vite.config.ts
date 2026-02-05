@@ -15,7 +15,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api/v1/tagging/stream': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
         ws: false,
@@ -35,7 +35,7 @@ export default defineConfig({
         },
       },
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
         configure: (proxy, options) => {

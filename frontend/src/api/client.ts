@@ -176,9 +176,10 @@ export const taggingApi = {
 
   // SSE 流式获取进度
     streamProgress: (onProgress: (data: any) => void, onComplete: () => void, onError: (_error: Error) => void) => {
-    // 开发环境直接连接后端，生产环境使用相对路径
+    // 获取正确的后端URL
     const isDev = import.meta.env.DEV;
-    const streamUrl = isDev ? 'http://localhost:8080/api/v1/tagging/stream' : '/api/v1/tagging/stream';
+    const streamUrl = isDev ? 'http://localhost:8000/api/v1/tagging/stream' : '/api/v1/tagging/stream';
+    console.log(`SSE 连接URL: ${streamUrl}`);
 
     const eventSource = new EventSource(streamUrl, {
       withCredentials: true
@@ -189,7 +190,10 @@ export const taggingApi = {
     };
 
     eventSource.onmessage = (event) => {
+      console.log('SSE 收到消息:', event.data);
+
       if (event.data === '[DONE]') {
+        console.log('SSE 任务完成');
         eventSource.close();
         onComplete();
         return;
@@ -199,7 +203,7 @@ export const taggingApi = {
         const data = JSON.parse(event.data);
         onProgress(data);
       } catch (e) {
-        console.error('解析 SSE 数据失败:', event.data, e);
+        console.log('SSE 收到非JSON消息 (心跳包):', event.data);
       }
     };
 

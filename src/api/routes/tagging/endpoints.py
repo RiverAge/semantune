@@ -263,6 +263,7 @@ async def stream_progress():
     """
     SSE 端点：实时推送标签生成进度
     """
+    logger.info("SSE stream 端点被调用")
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
