@@ -88,7 +88,6 @@ def update_env_file(key: str, value: str) -> None:
     env_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
     logger.info(f"更新 .env 文件中的 {key}")
 
-
 async def get_api_config():
     """
     获取当前 API 配置
@@ -96,23 +95,24 @@ async def get_api_config():
     返回 API 配置信息，API Key 会脱敏显示
     """
     try:
-        from config.settings import get_api_key, BASE_URL, MODEL
+        from config.settings import get_api_key, get_base_url, get_model
         
         api_key = get_api_key()
         
         return ApiResponse.success_response(data={
             "api_key": mask_api_key(api_key),
-            "base_url": BASE_URL,
-            "model": MODEL,
+            "base_url": get_base_url(),
+            "model": get_model(),
             "is_configured": bool(api_key)
         })
     
     except ValueError as e:
         # API Key 未配置
+        from config.settings import get_base_url, get_model
         return ApiResponse.success_response(data={
             "api_key": "",
-            "base_url": "https://integrate.api.nvidia.com/v1/chat/completions",
-            "model": "meta/llama-3.3-70b-instruct",
+            "base_url": get_base_url(),
+            "model": get_model(),
             "is_configured": False
         })
     except Exception as e:

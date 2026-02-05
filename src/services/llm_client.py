@@ -9,7 +9,7 @@ import time
 import requests
 from typing import Optional, Dict, Any, Tuple
 
-from config.settings import get_api_key, BASE_URL, MODEL
+from config.settings import get_api_key, get_base_url, get_model
 from config.constants import get_prompt_template, get_tagging_api_config
 from src.utils.logger import setup_logger
 
@@ -65,7 +65,7 @@ class LLMClient:
 
         headers = {"Authorization": f"Bearer {get_api_key()}", "Content-Type": "application/json"}
         payload = {
-            "model": MODEL,
+            "model": get_model(),
             "messages": [{"role": "user", "content": prompt}],
             "temperature": api_config.get("temperature", 0.1),
             "max_tokens": api_config.get("max_tokens", 1024)
@@ -78,13 +78,13 @@ class LLMClient:
         # Debug: 输出发送给 LLM 的请求
         logger.debug(f"=== 发送给 LLM 的请求 ===")
         logger.debug(f"歌曲信息: {artist} - {title} ({album})")
-        logger.debug(f"API URL: {BASE_URL}")
+        logger.debug(f"API URL: {get_base_url()}")
         logger.debug(f"请求头: {headers}")
         logger.debug(f"请求体: {json.dumps(payload, ensure_ascii=False, indent=2)}")
 
         for attempt in range(max_retries):
             try:
-                r = requests.post(BASE_URL, headers=headers, json=payload, timeout=api_config.get("timeout", 60))
+                r = requests.post(get_base_url(), headers=headers, json=payload, timeout=api_config.get("timeout", 60))
                 r.raise_for_status()
                 content = r.json()['choices'][0]['message']['content']
                 

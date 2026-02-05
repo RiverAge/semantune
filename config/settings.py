@@ -8,15 +8,16 @@ from pathlib import Path
 from dotenv import load_dotenv
 from typing import Dict, Any
 
-# 加载 .env 文件
-load_dotenv()
-
 # 项目根目录
 BASE_DIR = Path(__file__).parent.parent
 
 # 数据根目录（Docker 部署时可设置环境变量）
 DATA_ROOT = Path(os.getenv("SEMANTUNE_DATA_DIR", BASE_DIR / "data"))
 DATA_ROOT.mkdir(parents=True, exist_ok=True)
+
+# 加载 .env 文件（显式指定路径）
+ENV_PATH = DATA_ROOT / ".env"
+load_dotenv(dotenv_path=ENV_PATH)
 
 # 导入版本号 - 单一来源
 import sys
@@ -57,9 +58,17 @@ LOG_FILES = {
 EXPORT_DIR = str(DATA_ROOT / "exports")
 os.makedirs(EXPORT_DIR, exist_ok=True)
 
-# LLM API 配置（支持任何 OpenAI 兼容的 API）
-BASE_URL = os.getenv("SEMANTUNE_BASE_URL", "https://integrate.api.nvidia.com/v1/chat/completions")  # OpenAI 兼容的 API 端点
-MODEL = os.getenv("SEMANTUNE_MODEL", "meta/llama-3.3-70b-instruct")  # 模型名称
+# LLM API 配置（支持任何 OpenAI 兼容的 API） - 改为动态获取或默认值
+DEFAULT_BASE_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
+DEFAULT_MODEL = "meta/llama-3.3-70b-instruct"
+
+def get_base_url() -> str:
+    """动态获取 Base URL"""
+    return os.getenv("SEMANTUNE_BASE_URL", DEFAULT_BASE_URL)
+
+def get_model() -> str:
+    """动态获取模型名称"""
+    return os.getenv("SEMANTUNE_MODEL", DEFAULT_MODEL)
 
 
 def get_api_key() -> str:
@@ -90,7 +99,7 @@ def reload_env():
     
     当配置更新后调用此函数以使新配置生效
     """
-    load_dotenv(override=True)
+    load_dotenv(dotenv_path=ENV_PATH, override=True)
 
 
 # API 提供商类型（用于选择提示词格式）

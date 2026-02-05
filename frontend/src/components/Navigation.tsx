@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ChevronDown, ChevronRight, Star, Database, Settings } from 'lucide-react';
+import { ChevronDown, Star, Database, Settings } from 'lucide-react';
 
 interface NavItem {
   path: string;
@@ -65,7 +65,7 @@ export default function Navigation() {
           updated.delete(groupTitle);
           return updated;
         });
-      }, 200);
+      }, 300);
     } else {
       newExpanded.clear();
       newExpanded.add(groupTitle);
@@ -80,7 +80,7 @@ export default function Navigation() {
     setClosingGroups(newClosing);
     setTimeout(() => {
       setClosingGroups(new Set());
-    }, 200);
+    }, 300);
   };
 
   useEffect(() => {
@@ -131,31 +131,28 @@ export default function Navigation() {
                   {/* 组标题 */}
                   <button
                     onClick={() => toggleGroup(group.title)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      isGroupActive
-                        ? 'bg-primary-50 text-primary-700'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                    }`}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isGroupActive || isExpanded
+                      ? 'bg-primary-50 text-primary-700'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      }`}
                   >
                     <GroupIcon className="h-4 w-4" />
                     <span>{group.title}</span>
-                    {isExpanded || closingGroups.has(group.title) ? (
-                      <ChevronDown className="h-3 w-3" />
-                    ) : (
-                      <ChevronRight className="h-3 w-3" />
-                    )}
+                    <ChevronDown
+                      className={`h-3 w-3 transition-transform duration-300 ease-in-out ${isExpanded ? 'rotate-180' : 'rotate-0'
+                        }`}
+                    />
                   </button>
 
                   {/* 下拉菜单 */}
                   {(isExpanded || closingGroups.has(group.title)) && (
                     <div
-                      className={`absolute left-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 origin-top overflow-hidden ${
-                        isExpanded
-                          ? 'opacity-100 scale-y-100'
-                          : 'opacity-0 scale-y-95 pointer-events-none'
-                      } transition-all duration-200 ease-out`}
+                      className={`absolute left-0 mt-2 w-52 bg-white/90 backdrop-blur-sm rounded-xl shadow-xl border border-gray-100 py-1.5 z-50 origin-top overflow-hidden transform ${isExpanded
+                        ? 'opacity-100 translate-y-0 scale-100'
+                        : 'opacity-0 -translate-y-2 scale-95 pointer-events-none'
+                        } transition-all duration-300 cubic-bezier(0.34, 1.56, 0.64, 1)`}
                     >
-                      {group.items.map((item) => {
+                      {group.items.map((item, idx) => {
                         const isActive = location.pathname === item.path;
                         const ItemIcon = item.icon;
 
@@ -164,17 +161,19 @@ export default function Navigation() {
                             key={item.path}
                             to={item.path}
                             onClick={() => closeAllGroups()}
-                            className={`flex items-center justify-between px-4 py-2 text-sm transition-colors ${
-                              isActive
-                                ? 'bg-primary-50 text-primary-700'
-                                : 'text-gray-700 hover:bg-gray-50'
-                            }`}
+                            className={`flex items-center justify-between px-4 py-2 text-sm transition-all duration-200 ${isActive
+                              ? 'bg-primary-50 text-primary-700 font-medium'
+                              : 'text-gray-700 hover:bg-gray-100/80 hover:pl-5'
+                              }`}
+                            style={{
+                              transitionDelay: isExpanded ? `${idx * 40}ms` : '0ms'
+                            }}
                           >
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-3">
                               <ItemIcon />
                               <span>{item.label}</span>
                               {item.badge !== undefined && item.badge > 0 && (
-                                <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getBadgeColor(item.badgeColor)}`}>
+                                <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-tight ${getBadgeColor(item.badgeColor)} shadow-sm`}>
                                   {item.badge}
                                 </span>
                               )}
@@ -191,11 +190,10 @@ export default function Navigation() {
             {/* 首页按钮 */}
             <Link
               to="/"
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                location.pathname === '/'
-                  ? 'bg-primary-50 text-primary-700'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              }`}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${location.pathname === '/'
+                ? 'bg-primary-50 text-primary-700'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
             >
               <span>🏠</span>
               首页
