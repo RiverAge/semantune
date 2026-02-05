@@ -98,6 +98,27 @@ export function useTagging() {
     }
   };
 
+  const handleExportHistory = async () => {
+    try {
+      const response = await fetch('/api/v1/tagging/export');
+      if (!response.ok) {
+        throw new Error('导出失败');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tagging_history_${new Date().toISOString().slice(0,10)}.md`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('导出历史记录失败:', err);
+      setError(err instanceof Error ? err.message : '导出历史记录失败');
+    }
+  };
+
   const refreshStatusAndHistory = async () => {
     await Promise.all([loadStatus(), loadHistory()]);
   };
@@ -271,6 +292,7 @@ export function useTagging() {
     handleStartTagging,
     handleStopTagging,
     loadHistory,
+    handleExportHistory,
     highlightProcessed,
   };
 }

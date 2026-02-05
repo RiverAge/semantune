@@ -1,4 +1,4 @@
-import { Tag, Play, Clock, AlertCircle, CheckCircle, History } from 'lucide-react';
+import { Tag, Play, Clock, AlertCircle, CheckCircle, History, Download } from 'lucide-react';
 import type { TaggingStatus } from '../../types';
 
 interface BatchTaggingProps {
@@ -16,6 +16,7 @@ interface BatchTaggingProps {
   onLoadHistory: () => void;
   onHistoryOffsetChange: (offset: number) => void;
   highlightProcessed?: boolean;
+  onExportHistory?: () => void;
 }
 
 export default function BatchTagging({
@@ -33,6 +34,7 @@ export default function BatchTagging({
   onLoadHistory,
   onHistoryOffsetChange,
   highlightProcessed = false,
+  onExportHistory,
 }: BatchTaggingProps) {
   return (
     <>
@@ -138,6 +140,15 @@ export default function BatchTagging({
             <History className="h-5 w-5 text-primary-600 mr-2" />
             <h2 className="text-lg font-semibold">标记历史</h2>
             <span className="ml-2 text-sm text-gray-500">({historyTotal} 条记录)</span>
+            {historyTotal > 0 && onExportHistory && (
+              <button
+                onClick={onExportHistory}
+                className="ml-4 flex items-center text-sm text-primary-600 hover:text-primary-700"
+              >
+                <Download className="h-4 w-4 mr-1" />
+                导出
+              </button>
+            )}
           </div>
           {historyOffset > 0 && (
             <button

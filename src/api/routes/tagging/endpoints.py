@@ -397,3 +397,57 @@ async def get_tagging_history(limit: int = 20, offset: int = 0):
     except Exception as e:
         logger.error(f"获取历史记录失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/export")
+async def export_history_md():
+    """
+    导出标签生成历史记录为 Markdown 格式
+    """
+    try:
+        with sem_db_context() as sem_conn:
+            cursor = sem_conn.execute("""
+                SELECT title, artist, album, mood, energy, scene,
+                       region, subculture, genre, confidence, updated_at
+                FROM music_semantic
+                ORDER BY updated_at DESC
+            """)
+
+            rows = cursor.fetchall()
+
+            if not rows:
+                content = "# 标签生成历史记录\n\n暂无记录"
+                return StreamingResponse(
+                    iter([content]),
+                    media_type="text/markdown",
+                    headers={
+                        "Content-Disposition": "attachment; filename=tagging_history.md"
+                    }
+                )
+
+            markdown_lines = [
+                "# 标签生成历史记录\n\n",
+                f"共 {len(rows)} 条记录\n\n",
+                "| 歌曲名 | 艺术家 | 专辑 | 心情 | 能量 | 场景 | 地区 | 文化 | 类型 | 置信度 | 更新时间 |\n",
+                "|--------|--------|------|------|------|------|------|------|------|--------|----------|\n"
+            ]
+
+            for row in rows:
+                tags = row[3:10]
+                markdown_lines.append(
+                    f"| {row[0]} | {row[1]} | {row[2]} | {tags[0]} | {tags[1]} | {tags[2]} | {tags[3]} | {tags[4]} | {tags[5]} | {tags[6]:.2f} | {row[10]} |\n"
+                )
+
+            content = "".join(markdown_lines)
+
+            return StreamingResponse(
+                iter([content]),
+                media_type="text/markdown",
+                headers={
+                    "Content-Disposition": "attachment; filename=tagging_history.md"
+                }
+            )
+
+    except Exception as e:
+        logger.error(f"导出历史记录失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
