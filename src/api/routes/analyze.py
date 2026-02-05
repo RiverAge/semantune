@@ -167,6 +167,84 @@ async def get_quality():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/health")
+async def get_health():
+    """
+    获取系统健康度概览
+    包含标签覆盖率、重复项数量等综合指标
+    """
+    try:
+        from src.core.database import nav_db_context
+
+        with sem_db_context() as sem_conn:
+            # 总歌曲数
+            total_songs = sem_conn.execute("SELECT COUNT(*) FROM music_semantic").fetchone()[0]
+
+            # 已标签歌曲数
+            tagged_songs = sem_conn.execute(
+                "SELECT COUNT(*) FROM music_semantic WHERE mood IS NOT NULL AND mood != 'None'"
+            ).fetchone()[0]
+
+            # 标签覆盖率
+            tag_coverage = (tagged_songs / total_songs * 100) if total_songs > 0 else 0
+
+            # 获取平均置信度
+            avg_confidence = sem_conn.execute(
+                "SELECT AVG(CAST(confidence AS REAL)) FROM music_semantic WHERE confidence IS NOT NULL"
+            ).fetchone()[0] or 0
+
+        # 获取重复项数量
+        with nav_db_context() as nav_conn:
+            duplicate_service = ServiceFactory.create_duplicate_detection_service(nav_conn)
+            duplicate_result = duplicate_service.detect_all_duplicates()
+            duplicate_count = duplicate_result['summary']['total_issues']
+
+        # 计算健康度分数
+        # 基础分 100
+        # 标签覆盖率权重 40%
+        # 平均置信度权重 30%
+        # 重复项影响权重 30%
+        health_score = 100
+        health_score -= (1 - min(tag_coverage / 100, 1)) * 40
+        health_score -= (1 - avg_confidence) * 30
+        health_score -= min(duplicate_count / 10, 1) * 30
+        health_score = max(0, min(100, health_score))
+
+        # 确定健康级别
+        if health_score >= 90:
+            health_level = 'excellent'
+        elif health_score >= 70:
+            health_level = 'good'
+        elif health_score >= 50:
+            health_level = 'warning'
+        else:
+            health_level = 'error'
+
+        logger.info(f"获取系统健康度: 分数={health_score:.1f}, 级别={health_level}")
+
+        return {
+            "success": True,
+            "data": {
+                "health_score": round(health_score, 1),
+                "health_level": health_level,
+                "total_songs": total_songs,
+                "tagged_songs": tagged_songs,
+                "tag_coverage": round(tag_coverage, 1),
+                "average_confidence": round(avg_confidence, 2),
+                "duplicate_count": duplicate_count,
+                "issues": {
+                    "duplicate_songs": duplicate_result['summary']['duplicate_song_groups'],
+                    "duplicate_albums": duplicate_result['summary']['duplicate_album_groups'],
+                    "duplicate_songs_in_album": duplicate_result['summary']['duplicate_songs_in_album_groups']
+                }
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"获取系统健康度失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/overview")
 async def get_overview():
     """
