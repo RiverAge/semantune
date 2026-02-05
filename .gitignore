@@ -74,3 +74,8 @@ lerna-debug.log*
 !.vscode/settings.json
 !.vscode/launch.json
 !.vscode/tasks.json
+
+# Test coverage
+coverage.json
+.coverage
+htmlcov/
