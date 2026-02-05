@@ -5,7 +5,7 @@
 from typing import Dict, Any, List
 import logging
 
-from config.settings import MODEL
+from config.settings import get_model
 from src.repositories.navidrome_repository import NavidromeRepository
 from src.repositories.semantic_repository import SemanticRepository
 from .llm_client import LLMClient
@@ -127,7 +127,7 @@ class TaggingService:
                     album=song['album'],
                     tags=result['tags'],
                     confidence=result['tags'].get('confidence', 0.0),
-                    model=MODEL
+                    model=get_model()
                 )
                 processed += 1
                 logger.info(f"处理进度 [{idx}/{len(untagged_songs)}]: {song['title']} - {song['artist']}")
