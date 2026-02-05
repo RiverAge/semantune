@@ -178,7 +178,7 @@ export const taggingApi = {
     streamProgress: (onProgress: (data: any) => void, onComplete: () => void, onError: (_error: Error) => void) => {
     // 获取正确的后端URL
     const isDev = import.meta.env.DEV;
-    const streamUrl = isDev ? 'http://localhost:8000/api/v1/tagging/stream' : '/api/v1/tagging/stream';
+    const streamUrl = isDev ? 'http://localhost:8080/api/v1/tagging/stream' : '/api/v1/tagging/stream';
     console.log(`SSE 连接URL: ${streamUrl}`);
 
     const eventSource = new EventSource(streamUrl, {
