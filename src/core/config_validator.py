@@ -9,7 +9,7 @@ from pathlib import Path
 
 from config.settings import (
     NAV_DB, SEM_DB, LOG_DIR, EXPORT_DIR,
-    BASE_URL, MODEL, get_api_key,
+    get_api_key, get_base_url, get_model,
     get_recommend_config, get_user_profile_config,
     CORS_ORIGINS
 )
@@ -96,10 +96,11 @@ Navidrome 数据库文件不存在: {NAV_DB}
                 errors.append(f"无法创建 {dir_name} {dir_path}: {str(e)}")
     
     # 4. 验证 API 配置
-    if not BASE_URL.startswith(("http://", "https://")):
-        errors.append(f"BASE_URL 格式无效: {BASE_URL}")
-    
-    if not MODEL:
+    base_url = get_base_url()
+    if not base_url.startswith(("http://", "https://")):
+        errors.append(f"BASE_URL 格式无效: {base_url}")
+
+    if not get_model():
         errors.append("MODEL 配置为空")
     
     # 5. 验证推荐配置
