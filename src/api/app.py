@@ -64,10 +64,30 @@ app.include_router(config.router, prefix="/api/v1/config", tags=["配置管理"]
 app.include_router(logs.router, prefix="/api/v1/logs", tags=["日志查看"])
 
 
-# 挂载前端静态文件到根路径
+# 挂载前端静态文件
 frontend_path = Path(__file__).parent.parent.parent / "frontend" / "dist"
 if frontend_path.exists():
-    app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="frontend")
+    # 先挂载静态资源（不使用 html=True）
+    app.mount("/assets", StaticFiles(directory=str(frontend_path / "assets")), name="assets")
+    app.mount("/vite.svg", StaticFiles(directory=str(frontend_path), html=False), name="vite_svg")
+    
+    # 根路径返回 index.html
+    @app.get("/")
+    async def root():
+        """根路径返回首页"""
+        return FileResponse(str(frontend_path / "index.html"))
+    
+    # SPA fallback - 所有非 API 请求返回 index.html
+    @app.get("/{full_path:path}")
+    async def spa_fallback(full_path: str):
+        """SPA fallback，前端路由返回 index.html"""
+        # 排除 API 请求和特殊路径
+        exclude_paths = ["api", "docs", "redoc", "openapi.json", "favicon.ico"]
+        if any(full_path.startswith(p) for p in exclude_paths):
+            return Response(status_code=404, content='{"detail":"Not Found"}', media_type="application/json")
+        
+        return FileResponse(str(frontend_path / "index.html"))
+    
     logger.info(f"✅ 前端静态文件已挂载: {frontend_path}")
 else:
     logger.warning(f"⚠️  前端构建目录不存在: {frontend_path}")
