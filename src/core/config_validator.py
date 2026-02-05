@@ -33,13 +33,13 @@ def validate_config() -> Dict[str, Any]:
     errors = []
     warnings = []
     
-    # 1. 验证 API Key
+    # 1. 验证 API Key（不阻止启动，仅警告）
     try:
         api_key = get_api_key()
         if not api_key or len(api_key) < 10:
-            errors.append("SEMANTUNE_API_KEY 无效或太短")
+            warnings.append("SEMANTUNE_API_KEY 未设置或无效。请在应用启动后通过前端设置页面配置。")
     except ValueError as e:
-        errors.append(f"API Key 配置错误: {str(e)}")
+        warnings.append(f"API Key 配置错误: {str(e)}。请在应用启动后通过前端设置页面配置。")
     
     # 2. 验证数据库路径
     nav_db_path = Path(NAV_DB)
