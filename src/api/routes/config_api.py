@@ -35,8 +35,9 @@ class ApiConfigResponse(BaseModel):
 
 def get_env_file_path() -> Path:
     """获取 .env 文件路径"""
-    from config.settings import BASE_DIR
-    return BASE_DIR / ".env"
+    from config.settings import DATA_ROOT
+    # .env 文件保存在数据根目录
+    return DATA_ROOT / ".env"
 
 
 def mask_api_key(api_key: str) -> str:

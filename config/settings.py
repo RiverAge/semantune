@@ -14,17 +14,21 @@ load_dotenv()
 # 项目根目录
 BASE_DIR = Path(__file__).parent.parent
 
+# 数据根目录（Docker 部署时可设置环境变量）
+DATA_ROOT = Path(os.getenv("SEMANTUNE_DATA_DIR", BASE_DIR / "data"))
+DATA_ROOT.mkdir(parents=True, exist_ok=True)
+
 # 导入版本号 - 单一来源
 import sys
 sys.path.insert(0, str(BASE_DIR / "src"))
 from __init__ import __version__ as VERSION
 
 # 数据库路径
-NAV_DB = str(BASE_DIR / "data" / "navidrome.db")
-SEM_DB = str(BASE_DIR / "data" / "semantic.db")
+NAV_DB = str(DATA_ROOT / "navidrome.db")
+SEM_DB = str(DATA_ROOT / "semantic.db")
 
 # 日志目录
-LOG_DIR = str(BASE_DIR / "logs")
+LOG_DIR = str(DATA_ROOT / "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 
 # 日志文件名配置
@@ -41,7 +45,7 @@ LOG_FILES = {
 }
 
 # 导出目录
-EXPORT_DIR = str(BASE_DIR / "exports")
+EXPORT_DIR = str(DATA_ROOT / "exports")
 os.makedirs(EXPORT_DIR, exist_ok=True)
 
 # LLM API 配置（支持任何 OpenAI 兼容的 API）
@@ -89,12 +93,15 @@ def _load_yaml_config(config_file: str) -> Dict[str, Any]:
     从 YAML 文件加载配置
     
     Args:
-        config_file: 配置文件名（相对于 config 目录）
+        config_file: 配置文件名（相对于数据目录）
         
     Returns:
         配置字典
     """
-    config_path = BASE_DIR / "config" / config_file
+    # 优先从数据目录读取，然后从项目 config 目录读取
+    config_path = DATA_ROOT / "config" / config_file
+    if not config_path.exists():
+        config_path = BASE_DIR / "config" / config_file
     
     if not config_path.exists():
         raise FileNotFoundError(f"配置文件不存在: {config_path}")
@@ -108,10 +115,12 @@ def _save_yaml_config(config_file: str, config: Dict[str, Any]) -> None:
     保存配置到 YAML 文件
     
     Args:
-        config_file: 配置文件名（相对于 config 目录）
+        config_file: 配置文件名（相对于数据目录）
         config: 配置字典
     """
-    config_path = BASE_DIR / "config" / config_file
+    config_dir = DATA_ROOT / "config"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    config_path = config_dir / config_file
     
     with open(config_path, 'w', encoding='utf-8') as f:
         yaml.dump(config, f, allow_unicode=True, default_flow_style=False, sort_keys=False)

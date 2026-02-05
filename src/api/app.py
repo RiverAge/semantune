@@ -8,7 +8,8 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
-from src.api.routes import recommend, query, tagging, analyze, config, logs
+from fastapi.staticfiles import StaticFiles
+from src.api.routes import recommend, query, tagging, analyze, config, logs, duplicate
 from src.utils.logger import setup_logger
 from config.settings import CORS_ORIGINS, VERSION, NAV_DB, SEM_DB
 from src.core.exceptions import (
@@ -57,18 +58,28 @@ app.include_router(recommend.router, prefix="/api/v1/recommend", tags=["推荐"]
 app.include_router(query.router, prefix="/api/v1/query", tags=["查询"])
 app.include_router(tagging.router, prefix="/api/v1/tagging", tags=["标签生成"])
 app.include_router(analyze.router, prefix="/api/v1/analyze", tags=["分析"])
+app.include_router(duplicate.router, prefix="/api/v1/duplicate", tags=["重复检测"])
 app.include_router(config.router, prefix="/api/v1/config", tags=["配置管理"])
 app.include_router(logs.router, prefix="/api/v1/logs", tags=["日志查看"])
 
 
+# 挂载前端静态文件
+frontend_path = Path(__file__).parent.parent.parent / "frontend" / "dist"
+if frontend_path.exists():
+    app.mount("/static", StaticFiles(directory=str(frontend_path), html=True), name="static")
+else:
+    logger.warning(f"⚠️  前端构建目录不存在: {frontend_path}")
+
+
 @app.get("/")
 async def root():
-    """根路径"""
+    """根路径 - 返回前端页面"""
     return {
         "message": "Navidrome 语义音乐推荐系统 API",
         "version": VERSION,
         "docs": "/docs",
-        "redoc": "/redoc"
+        "redoc": "/redoc",
+        "frontend": "/"
     }
 
 
