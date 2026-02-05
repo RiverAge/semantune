@@ -176,7 +176,13 @@ export const taggingApi = {
 
   // SSE 流式获取进度
     streamProgress: (onProgress: (data: any) => void, onComplete: () => void, onError: (_error: Error) => void) => {
-    const eventSource = new EventSource('/api/v1/tagging/stream');
+    const eventSource = new EventSource('/api/v1/tagging/stream', {
+      withCredentials: true
+    });
+
+    eventSource.onopen = () => {
+      console.log('SSE 连接已建立');
+    };
 
     eventSource.onmessage = (event) => {
       if (event.data === '[DONE]') {
@@ -188,12 +194,13 @@ export const taggingApi = {
       try {
         const data = JSON.parse(event.data);
         onProgress(data);
-      } catch {
-        console.error('解析 SSE 数据失败');
+      } catch (e) {
+        console.error('解析 SSE 数据失败:', event.data, e);
       }
     };
 
-    eventSource.onerror = (_error) => {
+    eventSource.onerror = (error) => {
+      console.error('SSE 错误:', error);
       eventSource.close();
       onError(new Error('SSE 连接失败'));
     };

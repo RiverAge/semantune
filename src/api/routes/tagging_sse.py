@@ -5,6 +5,7 @@
 import asyncio
 import logging
 import os
+import sys
 from typing import List
 
 from src.utils.logger import setup_logger
@@ -46,35 +47,60 @@ async def event_generator():
     """
     queue = asyncio.Queue()
     sse_clients.append(queue)
+    logger.info(f"SSE 客户端连接，当前客户端数: {len(sse_clients)}")
+    sys.stderr.flush()
 
     try:
-        # 发送初始状态
         yield f"data: {json.dumps(tagging_progress)}\n\n"
-        yield f"event: connected\ndata: ping\n\n"
+        yield ": hello\n\n"
+        sys.stderr.flush()
+
+        last_heartbeat = asyncio.get_event_loop().time()
+        iteration = 0
 
         while True:
             try:
-                # 使用 asyncio.wait_for 设置超时
-                message = await asyncio.wait_for(queue.get(), timeout=15.0)
-                yield message
+                try:
+                    message = await asyncio.wait_for(queue.get(), timeout=2.0)
+                    yield message
+                    sys.stderr.flush()
 
-                # 如果任务完成，关闭连接
-                if tagging_progress["status"] in ["completed", "failed", "stopped"]:
-                    yield "event: done\ndata: [DONE]\n\n"
-                    break
-            except asyncio.TimeoutError:
-                # 发送心跳包保持连接
-                yield ": keep-alive\n\n"
+                    if tagging_progress["status"] in ["completed", "failed", "stopped"]:
+                        yield "data: [DONE]\n\n"
+                        logger.info(f"SSE 任务完成，状态: {tagging_progress['status']}")
+                        break
+                except asyncio.TimeoutError:
+                    iteration += 1
+                    current_time = asyncio.get_event_loop().time()
+
+                    if current_time - last_heartbeat >= 5.0:
+                        yield f": heartbeat {iteration}\n\n"
+                        last_heartbeat = current_time
+                        sys.stderr.flush()
+
+                    if tagging_progress["status"] in ["completed", "failed"]:
+                        yield f"data: {json.dumps(tagging_progress)}\n\n"
+                        yield "data: [DONE]\n\n"
+                        logger.info(f"SSE 任务完成（检查），状态: {tagging_progress['status']}")
+                        break
+
+            except asyncio.CancelledError:
+                logger.debug("SSE 连接被取消")
+                break
+            except Exception as e:
+                logger.error(f"SSE 生成器内层错误: {e}")
+                break
 
     except asyncio.CancelledError:
         logger.debug("SSE 连接被取消")
     except Exception as e:
         logger.error(f"SSE 生成器错误: {e}")
-        yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+        yield f"data: {json.dumps({'error': str(e), 'status': 'error'})}\n\n"
     finally:
         if queue in sse_clients:
             sse_clients.remove(queue)
-            logger.debug(f"SSE 客户端断开，剩余: {len(sse_clients)}")
+        logger.info(f"SSE 客户端断开，剩余: {len(sse_clients)}")
+        sys.stderr.flush()
 
 
 def get_tagging_progress() -> dict:
@@ -87,7 +113,7 @@ def get_tagging_progress() -> dict:
     }
 
 
-def update_tagging_progress(total: int = None, processed: int = None, status: str = None):
+def update_tagging_progress(total: int | None = None, processed: int | None = None, status: str | None = None):
     """更新标签生成进度"""
     if total is not None:
         tagging_progress["total"] = total

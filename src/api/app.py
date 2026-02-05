@@ -36,7 +36,10 @@ logger = setup_logger("api", level=log_level, console_level=log_level)
 app = FastAPI(
     title="Navidrome 语义音乐推荐系统 API",
     description="基于 LLM 语义标签的个性化音乐推荐系统",
-    version=VERSION
+    version=VERSION,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
 )
 
 # 注册全局异常处理器
