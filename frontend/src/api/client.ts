@@ -210,7 +210,7 @@ export const taggingApi = {
       }
     };
 
-    eventSource.onerror = (error) => {
+    eventSource.onerror = (_error) => {
       console.log('SSE 连接关闭状态:', eventSource.readyState);
 
       // EventSource.CLOSED = 2
