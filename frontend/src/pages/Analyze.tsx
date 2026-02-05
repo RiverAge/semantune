@@ -17,6 +17,7 @@ export default function Analyze() {
   const loadUsers = async () => {
     try {
       const response = await analyzeApi.getUsers();
+
       if (response.success && response.data) {
         setUsers(response.data.users);
       }
@@ -31,6 +32,7 @@ export default function Analyze() {
       setLoading(true);
       setError(null);
       const response = await analyzeApi.getUserStats(username);
+
       if (response.success && response.data) {
         setUserStats(response.data);
       }

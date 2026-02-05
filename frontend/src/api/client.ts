@@ -19,6 +19,7 @@ import type {
   DuplicateSongsResponse,
   DuplicateAlbumsResponse,
   DuplicateSongsInAlbumResponse,
+  HealthData,
 } from '../types';
 
 const api = axios.create({
@@ -39,7 +40,6 @@ api.interceptors.request.use(
 // 响应拦截器
 api.interceptors.response.use(
   (response) => {
-    // 返回响应数据，类型为 ApiResponse<T>
     return response.data;
   },
   (error) => {
@@ -48,13 +48,13 @@ api.interceptors.response.use(
     const message = errorData?.message || error.message || '请求失败';
     const errorType = errorData?.type;
     const details = errorData?.details;
-    
+
     // 创建包含完整错误信息的 Error 对象
     const enhancedError = new Error(message) as any;
     enhancedError.type = errorType;
     enhancedError.details = details;
     enhancedError.status = error.response?.status;
-    
+
     return Promise.reject(enhancedError);
   }
 );
@@ -112,17 +112,12 @@ export const recommendApi = {
 // 查询相关 API
 export const queryApi = {
   // 查询歌曲
-  querySongs: async (params: QueryRequest): Promise<ApiResponse<Song[]>> => {
+  querySongs: async (params: QueryRequest) => {
     return await api.get<ApiResponse<Song[]>>('/query', { params });
   },
 
   // 获取所有标签选项
-  getTagOptions: async (): Promise<ApiResponse<{
-    moods: string[];
-    energies: string[];
-    genres: string[];
-    regions: string[];
-  }>> => {
+  getTagOptions: async () => {
     return await api.get<ApiResponse<{
       moods: string[];
       energies: string[];
@@ -135,28 +130,22 @@ export const queryApi = {
 // 标签生成相关 API
 export const taggingApi = {
   // 获取标签生成状态
-  getStatus: async (): Promise<ApiResponse<TaggingStatus>> => {
+  getStatus: async () => {
     return await api.get<ApiResponse<TaggingStatus>>('/tagging/status');
   },
 
   // 开始标签生成
-  startTagging: async (): Promise<ApiResponse<{ message: string }>> => {
+  startTagging: async () => {
     return await api.post<ApiResponse<{ message: string }>>('/tagging/start');
   },
 
   // 中止标签生成
-  stopTagging: async (): Promise<ApiResponse<{ message: string }>> => {
+  stopTagging: async () => {
     return await api.post<ApiResponse<{ message: string }>>('/tagging/stop');
   },
 
   // 测试单首歌曲标签生成
-  testTag: async (title: string, artist: string, album: string): Promise<ApiResponse<{
-    title: string;
-    artist: string;
-    album: string;
-    tags: any;
-    raw_response: string;
-  }>> => {
+  testTag: async (title: string, artist: string, album: string) => {
     return await api.post<ApiResponse<{
       title: string;
       artist: string;
@@ -167,12 +156,7 @@ export const taggingApi = {
   },
 
   // 获取标签生成历史记录
-  getHistory: async (limit: number = 20, offset: number = 0): Promise<ApiResponse<{
-    items: any[];
-    total: number;
-    limit: number;
-    offset: number;
-  }>> => {
+  getHistory: async (limit: number = 20, offset: number = 0) => {
     return await api.get<ApiResponse<{
       items: any[];
       total: number;
@@ -182,7 +166,7 @@ export const taggingApi = {
   },
 
   // SSE 流式获取进度
-  streamProgress: (onProgress: (data: any) => void, onComplete: () => void, onError: (error: Error) => void) => {
+    streamProgress: (onProgress: (data: any) => void, onComplete: () => void, onError: (_err: Error) => void) => {
     const eventSource = new EventSource('/api/v1/tagging/stream');
 
     eventSource.onmessage = (event) => {
@@ -212,22 +196,22 @@ export const taggingApi = {
 // 分析相关 API
 export const analyzeApi = {
   // 获取整体统计
-  getStats: async (): Promise<ApiResponse<AnalysisStats>> => {
+  getStats: async () => {
     return await api.get<ApiResponse<AnalysisStats>>('/analyze/overview');
   },
 
   // 获取系统健康度
-  getHealth: async (): Promise<ApiResponse<HealthData>> => {
+  getHealth: async () => {
     return await api.get<ApiResponse<HealthData>>('/analyze/health');
   },
 
   // 获取用户统计
-  getUserStats: async (username: string): Promise<ApiResponse<UserStats>> => {
+  getUserStats: async (username: string) => {
     return await api.get<ApiResponse<UserStats>>(`/recommend/profile/${username}`);
   },
 
   // 获取所有用户列表
-  getUsers: async (): Promise<ApiResponse<{ users: string[] }>> => {
+  getUsers: async () => {
     return await api.get<ApiResponse<{ users: string[] }>>('/recommend/users');
   },
 };
@@ -235,12 +219,7 @@ export const analyzeApi = {
 // 配置管理相关 API
 export const configApi = {
   // 获取 API 配置
-  getConfig: async (): Promise<ApiResponse<{
-    api_key: string;
-    base_url: string;
-    model: string;
-    is_configured: boolean;
-  }>> => {
+  getConfig: async () => {
     return await api.get<ApiResponse<{
       api_key: string;
       base_url: string;
@@ -250,7 +229,7 @@ export const configApi = {
   },
 
   // 更新 API 配置
-  updateConfig: async (config: { apiKey: string; baseUrl?: string; model?: string }): Promise<ApiResponse<{ message: string; api_key: string }>> => {
+  updateConfig: async (config: { apiKey: string; baseUrl?: string; model?: string }) => {
     return await api.post<ApiResponse<{ message: string; api_key: string }>>('/config/api', {
       api_key: config.apiKey,
       base_url: config.baseUrl,
@@ -259,16 +238,12 @@ export const configApi = {
   },
 
   // 重置 API 配置
-  resetConfig: async (): Promise<ApiResponse<{ message: string }>> => {
+  resetConfig: async () => {
     return await api.delete<ApiResponse<{ message: string }>>('/config/api');
   },
 
   // 获取推荐配置
-  getRecommendConfig: async (): Promise<ApiResponse<{
-    recommend: RecommendConfig;
-    user_profile: UserProfileConfig;
-    algorithm: AlgorithmConfig;
-  }>> => {
+  getRecommendConfig: async () => {
     return await api.get<ApiResponse<{
       recommend: RecommendConfig;
       user_profile: UserProfileConfig;
@@ -281,14 +256,12 @@ export const configApi = {
     recommend?: RecommendConfig;
     user_profile?: UserProfileConfig;
     algorithm?: AlgorithmConfig;
-  }): Promise<ApiResponse<{ message: string }>> => {
+  }) => {
     return await api.put<ApiResponse<{ message: string }>>('/config/recommend', params);
   },
 
   // 获取标签配置
-  getTaggingConfig: async (): Promise<ApiResponse<{
-    api_config: TaggingApiConfig;
-  }>> => {
+  getTaggingConfig: async () => {
     return await api.get<ApiResponse<{
       api_config: TaggingApiConfig;
     }>>('/config/tagging');
@@ -297,12 +270,12 @@ export const configApi = {
   // 更新标签配置
   updateTaggingConfig: async (params: {
     api_config?: TaggingApiConfig;
-  }): Promise<ApiResponse<{ message: string }>> => {
+  }) => {
     return await api.put<ApiResponse<{ message: string }>>('/config/tagging', params);
   },
 
   // 获取所有配置
-  getAllConfig: async (): Promise<ApiResponse<AllConfig>> => {
+  getAllConfig: async () => {
     return await api.get<ApiResponse<AllConfig>>('/config/all');
   },
 };

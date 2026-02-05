@@ -22,6 +22,7 @@ export default function Query() {
   const loadTagOptions = async () => {
     try {
       const response = await queryApi.getTagOptions();
+
       if (response.success && response.data) {
         setTagOptions(response.data);
       }
@@ -35,6 +36,7 @@ export default function Query() {
       setLoading(true);
       setError(null);
       const response = await queryApi.querySongs(filters);
+
       if (response.success && response.data) {
         setSongs(response.data);
       }

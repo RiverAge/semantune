@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Copy, AlertCircle, Music, Disc, FileText, RefreshCw, AlertTriangle } from 'lucide-react';
 import { duplicateApi } from '../api/client';
-import type { AllDuplicatesResponse, DuplicateSongGroup, DuplicateAlbumGroup, DuplicateSongInAlbumGroup } from '../types';
+import type { AllDuplicatesResponse } from '../types';
 
 export default function Duplicate() {
   const [data, setData] = useState<AllDuplicatesResponse | null>(null);

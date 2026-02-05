@@ -49,6 +49,7 @@ export default function TaggingConfig({
         baseUrl: config.baseUrl,
         model: config.model,
       });
+
       if (response.success) {
         setIsConfigured(true);
         setShowConfig(false);
