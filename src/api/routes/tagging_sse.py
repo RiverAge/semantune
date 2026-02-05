@@ -8,6 +8,7 @@ import os
 from typing import List
 
 from src.utils.logger import setup_logger
+import json
 
 # 从环境变量读取日志级别，默认为 INFO
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -29,7 +30,7 @@ sse_clients: List[asyncio.Queue] = []
 async def broadcast_progress():
     """向所有 SSE 客户端广播进度"""
     if sse_clients:
-        message = f"data: {tagging_progress}\n\n"
+        message = f"data: {json.dumps(tagging_progress)}\n\n"
         for queue in sse_clients:
             try:
                 await queue.put(message)
@@ -40,36 +41,40 @@ async def broadcast_progress():
 async def event_generator():
     """
     SSE 事件生成器
-    
-    生成实时进度事件流
+
+    生成实时进度事件流，包含心跳包保持连接
     """
     queue = asyncio.Queue()
     sse_clients.append(queue)
 
     try:
         # 发送初始状态
-        yield f"data: {tagging_progress}\n\n"
-
-        # 如果任务已经完成，立即发送 DONE
-        if tagging_progress["status"] in ["completed", "failed"]:
-            yield "data: [DONE]\n\n"
-            return
+        yield f"data: {json.dumps(tagging_progress)}\n\n"
+        yield f"event: connected\ndata: ping\n\n"
 
         while True:
-            # 等待进度更新
-            message = await queue.get()
-            yield message
+            try:
+                # 使用 asyncio.wait_for 设置超时
+                message = await asyncio.wait_for(queue.get(), timeout=15.0)
+                yield message
 
-            # 如果任务完成，关闭连接
-            if tagging_progress["status"] in ["completed", "failed"]:
-                yield "data: [DONE]\n\n"
-                break
+                # 如果任务完成，关闭连接
+                if tagging_progress["status"] in ["completed", "failed", "stopped"]:
+                    yield "event: done\ndata: [DONE]\n\n"
+                    break
+            except asyncio.TimeoutError:
+                # 发送心跳包保持连接
+                yield ": keep-alive\n\n"
 
     except asyncio.CancelledError:
-        pass
+        logger.debug("SSE 连接被取消")
+    except Exception as e:
+        logger.error(f"SSE 生成器错误: {e}")
+        yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
     finally:
         if queue in sse_clients:
             sse_clients.remove(queue)
+            logger.debug(f"SSE 客户端断开，剩余: {len(sse_clients)}")
 
 
 def get_tagging_progress() -> dict:
