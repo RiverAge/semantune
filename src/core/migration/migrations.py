@@ -49,7 +49,7 @@ migration_manager.register(Migration(
 migration_manager.register(Migration(
     version="1.1.0",
     name="add_indexes",
-    up_sql="\n".join(DB_INDEXES),
+    up_sql="\n".join([s + ";" for s in DB_INDEXES]),
     down_sql="""
         DROP INDEX IF EXISTS idx_music_semantic_mood;
         DROP INDEX IF EXISTS idx_music_semantic_energy;

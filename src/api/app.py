@@ -154,8 +154,9 @@ async def startup_event():
         elif result["status"] == "up_to_date":
             logger.info("✅ 数据库已是最新版本，无需迁移")
         else:
-            logger.error(f"❌ 数据库迁移失败: {result['message']}")
-            raise
+            error_msg = f"数据库迁移失败: {result['message']}"
+            logger.error(f"❌ {error_msg}")
+            raise RuntimeError(error_msg)
     except Exception as e:
         logger.error(f"❌ 数据库迁移异常: {e}")
         raise
