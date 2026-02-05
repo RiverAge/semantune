@@ -29,6 +29,9 @@ export function useTagging() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
+  // 数据高亮提示
+  const [highlightProcessed, setHighlightProcessed] = useState(false);
+
   // 历史记录状态
   const [history, setHistory] = useState<any[]>([]);
   const [historyTotal, setHistoryTotal] = useState(0);
@@ -105,6 +108,16 @@ export function useTagging() {
       setError(null);
       setSuccessMessage(null);
 
+      // 先设置初始状态
+      setStatus({
+        total: status?.total || 0,
+        processed: 0,
+        pending: status?.total || 0,
+        failed: 0,
+        progress: 0,
+        task_status: 'processing'
+      });
+
       // 先建立 SSE 连接
       eventSourceRef.current = taggingApi.streamProgress(
         // onProgress
@@ -118,6 +131,8 @@ export function useTagging() {
             task_status: data.status
           });
           loadHistory(); // 每次进度更新时刷新历史记录
+          setHighlightProcessed(true); // 触发高亮效果
+          setTimeout(() => setHighlightProcessed(false), 500); // 500ms 后取消高亮
         },
         // onComplete
         () => {
@@ -244,5 +259,6 @@ export function useTagging() {
     handleStartTagging,
     handleStopTagging,
     loadHistory,
+    highlightProcessed,
   };
 }

@@ -27,6 +27,7 @@ export default function Tagging() {
     handleStartTagging,
     handleStopTagging,
     loadHistory,
+    highlightProcessed,
   } = useTagging();
 
   // 配置页面
@@ -65,6 +66,7 @@ export default function Tagging() {
           onStopTagging={handleStopTagging}
           onLoadHistory={loadHistory}
           onHistoryOffsetChange={setHistoryOffset}
+          highlightProcessed={highlightProcessed}
         />
       )}
 

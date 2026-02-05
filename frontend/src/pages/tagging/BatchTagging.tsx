@@ -15,6 +15,7 @@ interface BatchTaggingProps {
   onStopTagging: () => void;
   onLoadHistory: () => void;
   onHistoryOffsetChange: (offset: number) => void;
+  highlightProcessed?: boolean;
 }
 
 export default function BatchTagging({
@@ -31,6 +32,7 @@ export default function BatchTagging({
   onStopTagging,
   onLoadHistory,
   onHistoryOffsetChange,
+  highlightProcessed = false,
 }: BatchTaggingProps) {
   return (
     <>
@@ -50,7 +52,11 @@ export default function BatchTagging({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">已处理</p>
-                <p className="text-2xl font-bold text-green-600">{status.processed}</p>
+                <p className={`text-2xl font-bold text-green-600 transition-all duration-300 ${
+                  highlightProcessed ? 'scale-125 text-yellow-400' : ''
+                }`}>
+                  {status.processed}
+                </p>
               </div>
               <Play className="h-8 w-8 text-green-600" />
             </div>
