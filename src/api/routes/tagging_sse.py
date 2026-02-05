@@ -54,8 +54,28 @@ async def event_generator():
     sys.stderr.flush()
 
     try:
-        logger.info(f"发送初始进度数据: {tagging_progress}")
-        yield f"data: {json.dumps(tagging_progress)}\n\n"
+        # 在发送初始状态前，先尝试从数据库获取实际的总歌曲数
+        from src.core.database import nav_db_context
+        from src.repositories.navidrome_repository import NavidromeRepository
+
+        initial_total = tagging_progress["total"]
+        if initial_total == 0:
+            try:
+                with nav_db_context() as nav_conn:
+                    nav_repo = NavidromeRepository(nav_conn)
+                    initial_total = nav_repo.get_total_count()
+                    logger.info(f"从数据库获取总歌曲数: {initial_total}")
+            except Exception as e:
+                logger.warning(f"获取总歌曲数失败: {e}")
+
+        # 发送初始状态（包含实际的总歌曲数）
+        initial_data = {
+            "total": initial_total,
+            "processed": tagging_progress["processed"],
+            "status": tagging_progress.get("status", "idle")
+        }
+        logger.info(f"发送初始进度数据: {initial_data}")
+        yield f"data: {json.dumps(initial_data)}\n\n"
         logger.info("发送初始进度数据完成")
         sys.stderr.flush()
 
@@ -66,7 +86,6 @@ async def event_generator():
         while True:
             try:
                 message = await asyncio.wait_for(queue.get(), timeout=2.0)
-                logger.info(f"收到队列消息: {message}")
                 yield message
                 sys.stderr.flush()
 
@@ -76,8 +95,6 @@ async def event_generator():
                     break
             except asyncio.TimeoutError:
                 current_time = asyncio.get_event_loop().time()
-
-                logger.debug(f"SSE 心跳检查，状态: {tagging_progress['status']}")
 
                 if current_time - last_heartbeat >= 5.0:
                     logger.info(f"发送心跳包 (当前进度): {tagging_progress}")
