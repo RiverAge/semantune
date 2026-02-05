@@ -1,5 +1,4 @@
 import { Tag, Play, Clock, AlertCircle, CheckCircle, History } from 'lucide-react';
-import { taggingApi } from '../../api/client';
 import type { TaggingStatus } from '../../types';
 
 interface BatchTaggingProps {

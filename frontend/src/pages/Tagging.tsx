@@ -11,8 +11,6 @@ export default function Tagging() {
     setActiveTab,
     config,
     setConfig,
-    isConfigured,
-    setIsConfigured,
     showConfig,
     setShowConfig,
     status,

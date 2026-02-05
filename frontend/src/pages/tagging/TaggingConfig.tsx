@@ -15,12 +15,6 @@ interface TaggingConfigProps {
   setShowConfig: (show: boolean) => void;
 }
 
-const DEFAULT_CONFIG: ApiConfig = {
-  apiKey: '',
-  baseUrl: 'https://integrate.api.nvidia.com/v1/chat/completions',
-  model: 'meta/llama-3.3-70b-instruct',
-};
-
 export default function TaggingConfig({
   config,
   setConfig,

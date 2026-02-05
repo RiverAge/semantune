@@ -7,6 +7,7 @@ import Tagging from './pages/Tagging';
 import Analyze from './pages/Analyze';
 import Settings from './pages/Settings';
 import Logs from './pages/Logs';
+import Duplicate from './pages/Duplicate';
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
           <Route path="/query" element={<Query />} />
           <Route path="/tagging" element={<Tagging />} />
           <Route path="/analyze" element={<Analyze />} />
+          <Route path="/duplicate" element={<Duplicate />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/logs" element={<Logs />} />
         </Routes>

@@ -18,7 +18,7 @@ export default function Logs() {
   
   // 自动刷新
   const [autoRefresh, setAutoRefresh] = useState(false);
-  const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
+  const [refreshInterval, setRefreshInterval] = useState<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     loadLogFiles();

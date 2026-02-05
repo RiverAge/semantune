@@ -89,6 +89,21 @@ export interface AnalysisStats {
   region_distribution: Record<string, number>;
 }
 
+export interface HealthData {
+  health_score: number;
+  health_level: 'excellent' | 'good' | 'warning' | 'error';
+  total_songs: number;
+  tagged_songs: number;
+  tag_coverage: number;
+  average_confidence: number;
+  duplicate_count: number;
+  issues: {
+    duplicate_songs: number;
+    duplicate_albums: number;
+    duplicate_songs_in_album: number;
+  };
+}
+
 export interface UserStats {
   username: string;
   total_plays: number;
@@ -167,4 +182,81 @@ export interface LogContentResponse {
   total_lines: number;
   lines: LogLine[];
   filtered: boolean;
+}
+
+// 重复检测相关类型
+export interface DuplicateSong {
+  id: string;
+  path: string;
+  title: string;
+  artist: string;
+  album: string;
+}
+
+export interface DuplicateSongGroup {
+  size: number;
+  count: number;
+  songs: DuplicateSong[];
+}
+
+export interface DuplicateAlbum {
+  id: string;
+  name: string;
+  album_artist: string;
+  min_year: number;
+  max_year: number;
+  song_count: number;
+  date: string;
+}
+
+export interface DuplicateAlbumGroup {
+  album: string;
+  album_artist: string;
+  count: number;
+  total_songs: number;
+  albums: DuplicateAlbum[];
+}
+
+export interface DuplicateSongInAlbum {
+  id: string;
+  album_id: string;
+  album: string;
+  album_artist: string;
+  title: string;
+}
+
+export interface DuplicateSongInAlbumGroup {
+  path: string;
+  count: number;
+  songs: DuplicateSongInAlbum[];
+}
+
+export interface DuplicateSongsResponse {
+  type: string;
+  total_groups: number;
+  duplicates: DuplicateSongGroup[];
+}
+
+export interface DuplicateAlbumsResponse {
+  type: string;
+  total_groups: number;
+  duplicates: DuplicateAlbumGroup[];
+}
+
+export interface DuplicateSongsInAlbumResponse {
+  type: string;
+  total_groups: number;
+  duplicates: DuplicateSongInAlbumGroup[];
+}
+
+export interface AllDuplicatesResponse {
+  duplicate_songs: DuplicateSongsResponse;
+  duplicate_albums: DuplicateAlbumsResponse;
+  duplicate_songs_in_album: DuplicateSongsInAlbumResponse;
+  summary: {
+    duplicate_song_groups: number;
+    duplicate_album_groups: number;
+    duplicate_songs_in_album_groups: number;
+    total_issues: number;
+  };
 }
