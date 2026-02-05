@@ -5,10 +5,11 @@ import logging
 import os
 import sqlite3
 from pathlib import Path
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from src.api.routes import recommend, query, tagging, analyze, config, logs, duplicate
 from src.utils.logger import setup_logger
 from config.settings import CORS_ORIGINS, VERSION, NAV_DB, SEM_DB
@@ -66,10 +67,23 @@ app.include_router(logs.router, prefix="/api/v1/logs", tags=["日志查看"])
 # 挂载前端静态文件到根路径
 frontend_path = Path(__file__).parent.parent.parent / "frontend" / "dist"
 if frontend_path.exists():
-    app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="frontend")
+    app.mount("/static", StaticFiles(directory=str(frontend_path), html=True), name="static")
     logger.info(f"✅ 前端静态文件已挂载: {frontend_path}")
 else:
     logger.warning(f"⚠️  前端构建目录不存在: {frontend_path}")
+
+
+# SPA fallback - 将所有非 API 请求返回 index.html
+@app.get("/{full_path:path}")
+async def spa_fallback(full_path: str, request: Request):
+    """SPA fallback，所有非 API 请求返回 index.html"""
+    if full_path.startswith("api/") or full_path.startswith("docs") or full_path == "favicon.ico":
+        return Response(status_code=404, content='{"detail":"Not Found"}', media_type="application/json")
+    
+    index_path = frontend_path / "index.html"
+    if index_path.exists():
+        return FileResponse(str(index_path))
+    return Response(status_code=404, content='{"detail":"Not Found"}', media_type="application/json")
 
 
 @app.get("/health")
