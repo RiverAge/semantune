@@ -176,7 +176,11 @@ export const taggingApi = {
 
   // SSE 流式获取进度
     streamProgress: (onProgress: (data: any) => void, onComplete: () => void, onError: (_error: Error) => void) => {
-    const eventSource = new EventSource('/api/v1/tagging/stream', {
+    // 开发环境直接连接后端，生产环境使用相对路径
+    const isDev = import.meta.env.DEV;
+    const streamUrl = isDev ? 'http://localhost:8080/api/v1/tagging/stream' : '/api/v1/tagging/stream';
+
+    const eventSource = new EventSource(streamUrl, {
       withCredentials: true
     });
 

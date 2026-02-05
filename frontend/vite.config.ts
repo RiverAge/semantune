@@ -14,6 +14,26 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
+      '/api/v1/tagging/stream': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false,
+        ws: false,
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq, req) => {
+            req.headers['connection'] = 'keep-alive';
+            req.headers['Cache-Control'] = 'no-cache';
+          });
+          proxy.on('proxyRes', (proxyRes) => {
+            delete proxyRes.headers['content-length'];
+            proxyRes.headers['cache-control'] = 'no-cache, no-transform';
+            proxyRes.headers['connection'] = 'keep-alive';
+          });
+          proxy.on('error', (err) => {
+            console.log('SSE proxy error', err);
+          });
+        },
+      },
       '/api': {
         target: 'http://localhost:8080',
         changeOrigin: true,
