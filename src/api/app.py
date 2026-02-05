@@ -67,30 +67,7 @@ app.include_router(logs.router, prefix="/api/v1/logs", tags=["日志查看"])
 # 挂载前端静态文件到根路径
 frontend_path = Path(__file__).parent.parent.parent / "frontend" / "dist"
 if frontend_path.exists():
-    # 挂载静态资源目录（需要优先处理）
-    static_app = StaticFiles(directory=str(frontend_path), html=False)
-    app.mount("/assets", static_app, name="assets")
-    app.mount("/vite.svg", StaticFiles(directory=str(frontend_path), html=False), name="vite_svg")
-    
-    # SPA fallback - 将前端路由返回 index.html
-    @app.get("/{full_path:path}")
-    async def spa_fallback(full_path: str, request: Request):
-        """SPA fallback，前端路由返回 index.html"""
-        # 排除静态资源和 API 请求
-        if (full_path.startswith("api/") or
-            full_path.startswith("docs") or
-            full_path.startswith("redoc") or
-            full_path.startswith("health") or
-            full_path == "favicon.ico" or
-            full_path.startswith("assets/") or
-            full_path.startswith("openapi.json")):
-            return Response(status_code=404, content='{"detail":"Not Found"}', media_type="application/json")
-        
-        index_path = frontend_path / "index.html"
-        if index_path.exists():
-            return FileResponse(str(index_path))
-        return Response(status_code=404, content='{"detail":"Not Found"}', media_type="application/json")
-    
+    app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="frontend")
     logger.info(f"✅ 前端静态文件已挂载: {frontend_path}")
 else:
     logger.warning(f"⚠️  前端构建目录不存在: {frontend_path}")
