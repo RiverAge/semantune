@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Users } from 'lucide-react';
-import { analyzeApi } from '../api/client';
+import { analyzeApi, asApiResponse } from '../api/client';
 import type { UserStats } from '../types';
 
 export default function Analyze() {
@@ -17,7 +17,7 @@ export default function Analyze() {
   const loadUsers = async () => {
     try {
       const response = await analyzeApi.getUsers();
-      const responseData = response as any;
+      const responseData = asApiResponse<{ users: string[] }>(response);
       if (responseData.success && responseData.data) {
         setUsers(responseData.data.users);
       }
@@ -32,7 +32,7 @@ export default function Analyze() {
       setLoading(true);
       setError(null);
       const response = await analyzeApi.getUserStats(username);
-      const responseData = response as any;
+      const responseData = asApiResponse<UserStats>(response);
       if (responseData.success && responseData.data) {
         setUserStats(responseData.data);
       }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Settings, Save, AlertCircle, CheckCircle } from 'lucide-react';
-import { configApi } from '../../api/client';
+import { configApi, asApiResponse } from '../../api/client';
 
 interface ApiConfig {
   apiKey: string;
@@ -49,7 +49,7 @@ export default function TaggingConfig({
         baseUrl: config.baseUrl,
         model: config.model,
       });
-      const responseData = response as any;
+      const responseData = asApiResponse<{ message: string; api_key: string }>(response);
       if (responseData.success) {
         setIsConfigured(true);
         setShowConfig(false);

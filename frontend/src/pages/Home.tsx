@@ -10,7 +10,7 @@ import {
   XCircle,
   AlertCircle,
 } from 'lucide-react';
-import { analyzeApi } from '../api/client';
+import { analyzeApi, asApiResponse } from '../api/client';
 import type { AnalysisStats, HealthData } from '../types';
 
 export default function Home() {
@@ -32,8 +32,8 @@ export default function Home() {
         analyzeApi.getHealth()
       ]);
 
-      const statsData = statsResponse as any;
-      const healthData = healthResponse as any;
+      const statsData = asApiResponse<AnalysisStats>(statsResponse);
+      const healthData = asApiResponse<HealthData>(healthResponse);
       if (statsData.success && statsData.data) {
         setStats(statsData.data);
       }

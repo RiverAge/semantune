@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, Filter } from 'lucide-react';
-import { queryApi } from '../api/client';
+import { queryApi, asApiResponse } from '../api/client';
 import type { Song, QueryRequest } from '../types';
 
 export default function Query() {
@@ -22,7 +22,12 @@ export default function Query() {
   const loadTagOptions = async () => {
     try {
       const response = await queryApi.getTagOptions();
-      const responseData = response as any;
+      const responseData = asApiResponse<{
+        moods: string[];
+        energies: string[];
+        genres: string[];
+        regions: string[];
+      }>(response);
       if (responseData.success && responseData.data) {
         setTagOptions(responseData.data);
       }
@@ -36,7 +41,7 @@ export default function Query() {
       setLoading(true);
       setError(null);
       const response = await queryApi.querySongs(filters);
-      const responseData = response as any;
+      const responseData = asApiResponse<Song[]>(response);
       if (responseData.success && responseData.data) {
         setSongs(responseData.data);
       }

@@ -22,6 +22,14 @@ import type {
   HealthData,
 } from '../types';
 
+/**
+ * 类型辅助函数：确保响应是 ApiResponse<T>
+ * 由于 axios 响应拦截器的类型限制，我们需要这个函数来提供类型安全
+ */
+export function asApiResponse<T>(response: unknown): ApiResponse<T> {
+  return response as ApiResponse<T>;
+}
+
 const api = axios.create({
   baseURL: '/api/v1',
   timeout: 30000,
@@ -37,9 +45,10 @@ api.interceptors.request.use(
   }
 );
 
-// 响应拦截器
+// 响应拦截器 - 拦截器返回的是 AxiosResponse，但我们返回其中的 data
 api.interceptors.response.use(
-  (response) => {
+  (response: any) => {
+    // response.data 是后端返回的 ApiResponse<T>
     return response.data;
   },
   (error) => {
@@ -166,7 +175,7 @@ export const taggingApi = {
   },
 
   // SSE 流式获取进度
-    streamProgress: (onProgress: (data: any) => void, onComplete: () => void, onError: (_err: Error) => void) => {
+    streamProgress: (onProgress: (data: any) => void, onComplete: () => void, onError: (_error: Error) => void) => {
     const eventSource = new EventSource('/api/v1/tagging/stream');
 
     eventSource.onmessage = (event) => {
@@ -184,7 +193,7 @@ export const taggingApi = {
       }
     };
 
-    eventSource.onerror = (error) => {
+    eventSource.onerror = (_error) => {
       eventSource.close();
       onError(new Error('SSE 连接失败'));
     };
