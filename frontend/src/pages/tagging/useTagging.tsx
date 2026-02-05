@@ -95,6 +95,10 @@ export function useTagging() {
     }
   };
 
+  const refreshStatusAndHistory = async () => {
+    await Promise.all([loadStatus(), loadHistory()]);
+  };
+
   const handleStartTagging = async () => {
     try {
       setIsGenerating(true);
@@ -105,29 +109,27 @@ export function useTagging() {
       eventSourceRef.current = taggingApi.streamProgress(
         // onProgress
         (data) => {
-          setStatus(prevStatus => ({
+          setStatus({
             total: data.total,
             processed: data.processed,
             pending: data.total - data.processed,
             failed: 0,
             progress: data.total > 0 ? (data.processed / data.total * 100) : 0,
             task_status: data.status
-          }));
+          });
+          loadHistory(); // 每次进度更新时刷新历史记录
         },
         // onComplete
         () => {
           setIsGenerating(false);
-          loadStatus(); // 刷新最终状态
-          loadHistory(); // 刷新历史记录
+          refreshStatusAndHistory(); // 刷新最终状态和历史记录
           // 显示成功消息
-          setStatus(prevStatus => {
-            const msg = prevStatus && prevStatus.processed > 0
-              ? `成功处理了 ${prevStatus.processed} 首歌曲`
-              : '标签生成任务已完成';
-            setSuccessMessage(msg);
-            setTimeout(() => setSuccessMessage(null), 3000);
-            return prevStatus || { task_status: 'completed' } as any;
-          });
+          const currentProcessed = status?.processed || 0;
+          const msg = currentProcessed > 0
+            ? `成功处理了 ${currentProcessed} 首歌曲`
+            : '标签生成任务已完成';
+          setSuccessMessage(msg);
+          setTimeout(() => setSuccessMessage(null), 3000);
         },
         // onError
         (err) => {
@@ -177,20 +179,20 @@ export function useTagging() {
       eventSourceRef.current = taggingApi.streamProgress(
         // onProgress
         (data) => {
-          setStatus(prevStatus => ({
+          setStatus({
             total: data.total,
             processed: data.processed,
             pending: data.total - data.processed,
             failed: 0,
             progress: data.total > 0 ? (data.processed / data.total * 100) : 0,
             task_status: data.status
-          }));
+          });
+          loadHistory(); // 每次进度更新时刷新历史记录
         },
         // onComplete
         () => {
           setIsGenerating(false);
-          loadStatus(); // 刷新最终状态
-          loadHistory(); // 刷新历史记录
+          refreshStatusAndHistory(); // 刷新最终状态和历史记录
         },
         // onError
         (err) => {
