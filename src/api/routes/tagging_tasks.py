@@ -21,9 +21,9 @@ log_level = getattr(logging, LOG_LEVEL, logging.INFO)
 logger = setup_logger("api", level=log_level, console_level=log_level)
 
 
-async def run_tagging_task():
+def run_tagging_task_sync():
     """
-    后台任务：处理所有未标签的歌曲
+    后台任务的同步实现（在线程中运行）
     """
     try:
         with dbs_context() as (nav_conn, sem_conn):
@@ -33,64 +33,60 @@ async def run_tagging_task():
             sem_repo = SemanticRepository(sem_conn)
             tagging_service = ServiceFactory.create_tagging_service(nav_conn, sem_conn)
 
-            # 1. 先进行清理：删除在 Navidrome 中已不存在的孤儿标签
             orphan_count = tagging_service.cleanup_orphans()
             if orphan_count > 0:
                 logger.info(f"后台任务：已清理 {orphan_count} 个孤儿标签")
 
-            # 2. 获取所有歌曲
             nav_songs = nav_repo.get_all_songs()
 
-            # 获取已处理的歌曲ID
             processed_ids = set()
             cursor = sem_conn.execute("SELECT file_id FROM music_semantic")
             for row in cursor.fetchall():
                 processed_ids.add(row[0])
 
-            # 筛选未处理的歌曲
             todo_songs = [s for s in nav_songs if s['id'] not in processed_ids]
 
-            # 更新总数
             update_tagging_progress(total=len(todo_songs))
-            await broadcast_progress()
 
             if len(todo_songs) == 0:
                 update_tagging_progress(status="completed")
-                await broadcast_progress()
                 logger.info("没有需要处理的歌曲")
                 return
 
-        # 调用处理函数
         with dbs_context() as (nav_conn, sem_conn):
             tagging_service = ServiceFactory.create_tagging_service(nav_conn, sem_conn)
             result = tagging_service.process_all_songs()
 
-        # 更新最终状态
         update_tagging_progress(status="completed")
-        await broadcast_progress()
         logger.info(f"标签生成任务完成: {result}")
 
     except Exception as e:
         logger.error(f"标签生成任务失败: {e}")
         update_tagging_progress(status="failed")
-        await broadcast_progress()
 
 
-async def process_batch_tags(songs: List[dict]):
+async def run_tagging_task():
     """
-    后台处理批量标签生成
-    
+    后台任务：处理所有未标签的歌曲
+    在单独的线程中运行，避免阻塞事件循环
+    """
+    import asyncio
+    await asyncio.to_thread(run_tagging_task_sync)
+
+
+def process_batch_tags_sync(songs: List[dict]):
+    """
+    批量标签生成的同步实现（在线程中运行）
+
     Args:
         songs: 歌曲列表，每首歌曲包含 title, artist, album
     """
     try:
         with dbs_context() as (nav_conn, sem_conn):
-            # 初始化语义数据库
             init_semantic_db(sem_conn)
 
             for idx, song in enumerate(songs):
                 try:
-                    # 生成标签
                     tagging_service = ServiceFactory.create_tagging_service(nav_conn, sem_conn)
                     result = tagging_service.generate_tag(
                         song["title"],
@@ -99,13 +95,12 @@ async def process_batch_tags(songs: List[dict]):
                     )
 
                     if result:
-                        # 保存到数据库
                         sem_conn.execute("""
                             INSERT OR REPLACE INTO music_semantic
                             (file_id, title, artist, album, mood, energy, genre, region, subculture, scene, confidence)
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """, (
-                            f"song_{idx}",  # 临时ID
+                            f"song_{idx}",
                             song["title"],
                             song["artist"],
                             song.get("album", ""),
@@ -119,7 +114,6 @@ async def process_batch_tags(songs: List[dict]):
                         ))
                         sem_conn.commit()
 
-                    # 更新进度
                     update_tagging_progress(processed=idx + 1)
 
                 except Exception as e:
@@ -132,3 +126,15 @@ async def process_batch_tags(songs: List[dict]):
     except Exception as e:
         logger.error(f"批量标签生成失败: {e}")
         update_tagging_progress(status="failed")
+
+
+async def process_batch_tags(songs: List[dict]):
+    """
+    后台处理批量标签生成
+    在单独的线程中运行，避免阻塞事件循环
+
+    Args:
+        songs: 歌曲列表，每首歌曲包含 title, artist, album
+    """
+    import asyncio
+    await asyncio.to_thread(process_batch_tags_sync, songs)
