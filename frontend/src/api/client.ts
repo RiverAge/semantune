@@ -185,6 +185,8 @@ export const taggingApi = {
       withCredentials: true
     });
 
+    let isCompleted = false;
+
     eventSource.onopen = () => {
       console.log('SSE 连接已建立');
     };
@@ -194,6 +196,7 @@ export const taggingApi = {
 
       if (event.data === '[DONE]') {
         console.log('SSE 任务完成');
+        isCompleted = true;
         eventSource.close();
         onComplete();
         return;
@@ -208,9 +211,17 @@ export const taggingApi = {
     };
 
     eventSource.onerror = (error) => {
-      console.error('SSE 错误:', error);
-      eventSource.close();
-      onError(new Error('SSE 连接失败'));
+      console.log('SSE 连接关闭状态:', eventSource.readyState);
+
+      // EventSource.CLOSED = 2
+      if (eventSource.readyState === 2 && !isCompleted) {
+        console.warn('SSE 连接异常关闭');
+        onError(new Error('SSE 连接异常关闭'));
+      } else {
+        console.log('SSE 连接正常关闭');
+        eventSource.close();
+        onComplete();
+      }
     };
 
     return eventSource;
