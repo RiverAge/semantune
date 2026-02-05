@@ -59,11 +59,6 @@ async def event_generator():
         logger.info("发送初始进度数据完成")
         sys.stderr.flush()
 
-        logger.info("发送 hello 心跳包")
-        yield ": hello\n\n"
-        logger.info("hello 心跳包发送完成")
-        sys.stderr.flush()
-
         last_heartbeat = asyncio.get_event_loop().time()
         iteration = 0
 
@@ -71,38 +66,39 @@ async def event_generator():
 
         while True:
             try:
-                try:
-                    message = await asyncio.wait_for(queue.get(), timeout=10.0)
-                    yield message
+                message = await asyncio.wait_for(queue.get(), timeout=2.0)
+                logger.info(f"收到队列消息: {message}")
+                yield message
+                sys.stderr.flush()
+
+                if tagging_progress["status"] in ["completed", "failed", "stopped"]:
+                    yield "data: [DONE]\n\n"
+                    logger.info(f"SSE 任务完成，状态: {tagging_progress['status']}")
+                    break
+            except asyncio.TimeoutError:
+                iteration += 1
+                current_time = asyncio.get_event_loop().time()
+
+                logger.debug(f"SSE 心跳检查: iteration={iteration}, 状态: {tagging_progress['status']}")
+
+                if current_time - last_heartbeat >= 3.0:
+                    comment = f"heartbeat {iteration} - status: {tagging_progress['status']}"
+                    logger.info(f"发送心跳包: {comment}")
+                    yield f": {comment}\n\n"
+                    last_heartbeat = current_time
                     sys.stderr.flush()
 
-                    if tagging_progress["status"] in ["completed", "failed", "stopped"]:
-                        yield "data: [DONE]\n\n"
-                        logger.info(f"SSE 任务完成，状态: {tagging_progress['status']}")
-                        break
-                except asyncio.TimeoutError:
-                    iteration += 1
-                    current_time = asyncio.get_event_loop().time()
-
-                    logger.debug(f"SSE 心跳检查: iteration={iteration}")
-
-                    if current_time - last_heartbeat >= 5.0:
-                        logger.info(f"发送心跳包 {iteration}")
-                        yield f": heartbeat {iteration}\n\n"
-                        last_heartbeat = current_time
-                        sys.stderr.flush()
-
-                    if tagging_progress["status"] in ["completed", "failed"]:
-                        yield f"data: {json.dumps(tagging_progress)}\n\n"
-                        yield "data: [DONE]\n\n"
-                        logger.info(f"SSE 任务完成（检查），状态: {tagging_progress['status']}")
-                        break
+                if tagging_progress["status"] in ["completed", "failed", "stopped"]:
+                    yield f"data: {json.dumps(tagging_progress)}\n\n"
+                    yield "data: [DONE]\n\n"
+                    logger.info(f"SSE 任务完成（检查），状态: {tagging_progress['status']}")
+                    break
 
             except asyncio.CancelledError:
                 logger.info("SSE 连接被取消")
                 break
             except Exception as e:
-                logger.error(f"SSE 生成器内层错误: {e}", exc_info=True)
+                logger.error(f"SSE 循环错误: {e}", exc_info=True)
                 break
 
         logger.info("SSE 主循环结束")
@@ -111,6 +107,7 @@ async def event_generator():
         logger.info("SSE 连接被取消 (外层)")
     except Exception as e:
         logger.error(f"SSE 生成器错误 (外层): {e}", exc_info=True)
+        yield f"data: {json.dumps({'error': str(e)})}\n\n"
     finally:
         if queue in sse_clients:
             sse_clients.remove(queue)

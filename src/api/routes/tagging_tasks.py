@@ -67,11 +67,6 @@ def run_tagging_task_sync():
                 sys.stderr.flush()
                 return
 
-        tagging_logger = setup_logger("api", level=log_level, console_level=log_level)
-        tagging_logger.info("=" * 60)
-        tagging_logger.info("开始处理歌曲...")
-        sys.stderr.flush()
-
         with dbs_context() as (nav_conn, sem_conn):
             tagging_service = ServiceFactory.create_tagging_service(nav_conn, sem_conn)
 
@@ -102,7 +97,7 @@ def run_tagging_task_sync():
                     return
 
                 try:
-                    tagging_logger.info(f"[{idx}/{len(untagged_songs)}] 正在处理: {song['title']} - {song['artist']}")
+                    logger.info(f"[{idx}/{len(untagged_songs)}] 正在处理: {song['title']} - {song['artist']}")
                     sys.stderr.flush()
 
                     result = tagging_service.generate_tag(
@@ -122,14 +117,14 @@ def run_tagging_task_sync():
                     )
                     processed += 1
                     update_tagging_progress(processed=processed)
-                    tagging_logger.info(f"[{idx}/{len(untagged_songs)}] ✓ 处理完成: {song['title']} - {song['artist']}")
+                    logger.info(f"[{idx}/{len(untagged_songs)}] ✓ 处理完成: {song['title']} - {song['artist']}")
                     sys.stderr.flush()
                 except Exception as e:
-                    tagging_logger.error(f"[{idx}/{len(untagged_songs)}] ✗ 处理失败: {song['title']} - {song['artist']} - {str(e)}", exc_info=True)
+                    logger.error(f"[{idx}/{len(untagged_songs)}] ✗ 处理失败: {song['title']} - {song['artist']} - {str(e)}", exc_info=True)
                     sys.stderr.flush()
                     failed += 1
 
-            tagging_logger.info(f"处理完成: 总数={len(untagged_songs)}, 已标记={processed}, 失败={failed}")
+            logger.info(f"处理完成: 总数={len(untagged_songs)}, 已标记={processed}, 失败={failed}")
             sys.stderr.flush()
 
         update_tagging_progress(status="completed")
