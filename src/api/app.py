@@ -144,7 +144,19 @@ async def health_check():
 async def startup_event():
     """应用启动事件"""
     logger.info("🚀 API 服务启动")
-    
+
+    # 运行数据库迁移
+    try:
+        from src.core.migration import run_migrations
+        result = run_migrations()
+        if result["applied_migrations"]:
+            logger.info(f"✅ 应用了 {len(result['applied_migrations'])} 个数据库迁移")
+        else:
+            logger.info("✅ 数据库已是最新版本，无需迁移")
+    except Exception as e:
+        logger.error(f"❌ 数据库迁移失败: {e}")
+        raise
+
     # 验证配置
     try:
         validate_on_startup()
