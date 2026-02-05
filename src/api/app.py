@@ -63,24 +63,13 @@ app.include_router(config.router, prefix="/api/v1/config", tags=["配置管理"]
 app.include_router(logs.router, prefix="/api/v1/logs", tags=["日志查看"])
 
 
-# 挂载前端静态文件
+# 挂载前端静态文件到根路径
 frontend_path = Path(__file__).parent.parent.parent / "frontend" / "dist"
 if frontend_path.exists():
-    app.mount("/static", StaticFiles(directory=str(frontend_path), html=True), name="static")
+    app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="frontend")
+    logger.info(f"✅ 前端静态文件已挂载: {frontend_path}")
 else:
     logger.warning(f"⚠️  前端构建目录不存在: {frontend_path}")
-
-
-@app.get("/")
-async def root():
-    """根路径 - 返回前端页面"""
-    return {
-        "message": "Navidrome 语义音乐推荐系统 API",
-        "version": VERSION,
-        "docs": "/docs",
-        "redoc": "/redoc",
-        "frontend": "/"
-    }
 
 
 @app.get("/health")
