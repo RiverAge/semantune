@@ -30,7 +30,8 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app \
-    SEMANTUNE_DATA_DIR=/app/data
+    SEMANTUNE_DATA_DIR=/app/data \
+    SEMANTUNE_NAVIDROME_DB_PATH=/app/navidrome/navidrome.db
 
 # Create data directory
 RUN mkdir -p /app/data

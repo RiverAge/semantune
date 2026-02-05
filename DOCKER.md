@@ -12,9 +12,10 @@
 # 1. 构建镜像
 docker build -t semantune .
 
-# 2. 运行容器（只需挂载一个目录！）
+# 2. 运行容器（挂载两个目录）
 docker run -d --name semantune -p 8000:8000 \
   -v $(pwd)/semantune-data:/app/data \
+  -v /path/to/your/navidrome-data:/app/navidrome:ro \
   semantune
 
 # 3. 访问应用
@@ -22,24 +23,34 @@ docker run -d --name semantune -p 8000:8000 \
 # API文档: http://localhost:8000/docs
 ```
 
+**参数说明：**
+- `/path/to/your/navidrome-data` - 替换为你的 Navidrome 数据目录
+- `:ro` - 只读挂载（推荐，防止误删数据）
+
 Windows PowerShell：
 
 ```powershell
 docker build -t semantune .
 docker run -d --name semantune -p 8000:8000 `
   -v "${PWD}/semantune-data:/app/data" `
+  -v "C:\path\to\navidrome-data:/app/navidrome:ro" `
   semantune
 ```
 
 ### 方式二：使用 Docker 卷
 
 ```bash
-# 1. 构建镜像
-docker build -t semantune .
+# 1. 为 Navidrome 数据创建卷
+docker volume create navidrome-data
 
-# 2. 运行容器（Docker 自动管理数据卷）
+# 2. 将 Navidrome 数据复制到卷（首次）
+# 假设你的 Navidrome 数据在 /opt/navidrome
+docker run --rm -v /opt/navidrome:/data -v navidrome-data:/target alpine sh -c "cp -r /data/* /target/"
+
+# 3. 运行容器
 docker run -d --name semantune -p 8000:8000 \
   -v semantune-data:/app/data \
+  -v navidrome-data:/app/navidrome:ro \
   semantune
 ```
 
@@ -53,12 +64,11 @@ docker run -d --name semantune -p 8000:8000 \
 
 ## 数据目录结构
 
-容器内的 `/app/data` 目录结构：
+### 容器内的数据目录
 
 ```
-/app/data/
+/app/data/              # Semantune 自己的数据目录
 ├── .env                # API Key 等配置（前端设置后自动生成）
-├── navidrome.db        # Navidrome 数据库
 ├── semantic.db         # 语义数据库
 ├── config/             # YAML 配置文件
 │   ├── recommend_config.yaml
@@ -69,9 +79,23 @@ docker run -d --name semantune -p 8000:8000 \
 │   └── ...
 └── exports/            # 导出的数据
     └── export_*/
+
+/app/navidrome/         # Navidrome 数据目录（外部挂载，只读）
+└── navidrome.db        # Navidrome 数据库（包含播放历史、歌单等）
 ```
 
-**所有数据都这一个目录里！**
+### 两个挂载点的作用
+
+| 挂载点 | 容器内路径 | 说明 | 权限 |
+|--------|-----------|------|------|
+| Semantune 数据 | `/app/data` | 语义标签、配置、日志、导出 | 读写 |
+| Navidrome 数据 | `/app/navidrome` | Navidrome 数据库 | 只读 `:ro` |
+
+**分离的好处：**
+- ✅ Navidrome 数据安全（只读，防止误操作）
+- ✅ 可以复用现有的 Navidrome 容器的数据卷
+- ✅ 备份和迁移更灵活
+- ✅ 不会影响 Navidrome 服务运行
 
 ## 常用命令
 
