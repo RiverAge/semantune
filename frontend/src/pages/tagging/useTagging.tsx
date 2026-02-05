@@ -108,15 +108,18 @@ export function useTagging() {
       setError(null);
       setSuccessMessage(null);
 
-      // 先设置初始状态
-      setStatus({
-        total: status?.total || 0,
+      // 先刷新状态，确保有当前的总歌曲数
+      await loadStatus();
+
+      // 保留现有的 total，重置 processed
+      setStatus((prevStatus) => ({
+        total: prevStatus?.total || 0,
         processed: 0,
-        pending: status?.total || 0,
+        pending: prevStatus?.total || 0,
         failed: 0,
         progress: 0,
         task_status: 'processing'
-      });
+      }));
 
       // 先建立 SSE 连接
       eventSourceRef.current = taggingApi.streamProgress(
