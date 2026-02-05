@@ -6,6 +6,7 @@ import logging
 import sys
 from pathlib import Path
 from typing import Optional
+from logging.handlers import RotatingFileHandler
 
 from config.settings import LOG_DIR, LOG_FILES
 
@@ -56,7 +57,15 @@ def setup_logger(
         log_path = Path(LOG_DIR) / log_file
         log_path.parent.mkdir(parents=True, exist_ok=True)
         
-        file_handler = logging.FileHandler(log_path, encoding='utf-8')
+        # 使用 RotatingFileHandler 实现日志轮转
+        # maxBytes: 10MB
+        # backupCount: 保留5个备份文件
+        file_handler = RotatingFileHandler(
+            log_path,
+            encoding='utf-8',
+            maxBytes=10 * 1024 * 1024,  # 10MB
+            backupCount=5
+        )
         file_handler.setLevel(level)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
@@ -75,3 +84,4 @@ def get_logger(name: str) -> logging.Logger:
         日志记录器
     """
     return logging.getLogger(name)
+
