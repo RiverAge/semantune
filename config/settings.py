@@ -66,12 +66,15 @@ def get_api_key() -> str:
     """
     获取 API Key，延迟验证以避免模块导入时抛出异常
     
+    每次调用时重新加载 .env 文件，确保获取最新的配置
+    
     Returns:
         API Key 字符串
         
     Raises:
         ValueError: 当 API_KEY 未设置时抛出
     """
+    reload_env()
     api_key = os.getenv("SEMANTUNE_API_KEY")
     if not api_key:
         raise ValueError(
