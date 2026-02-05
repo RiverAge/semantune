@@ -26,6 +26,11 @@ RUN npm ci && npm run build
 
 WORKDIR /app
 
+# Verify frontend build artifacts exist
+RUN ls -la frontend/dist/ && \
+    ls -la frontend/dist/assets/ && \
+    echo "Frontend build verified successfully"
+
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
