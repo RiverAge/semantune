@@ -108,18 +108,27 @@ export function useTagging() {
       setError(null);
       setSuccessMessage(null);
 
-      // 先刷新状态，确保有当前的总歌曲数
-      await loadStatus();
+      // 先获取当前状态总歌曲数
+      const currentStatusResponse = await taggingApi.getStatus() as any;
+      let total = 0;
+      if (currentStatusResponse.success && currentStatusResponse.data) {
+        total = currentStatusResponse.data.total || 0;
+      }
+
+      // 如果从状态获取不到，使用历史记录总数
+      if (total === 0 && historyTotal > 0) {
+        total = historyTotal;
+      }
 
       // 保留现有的 total，重置 processed
-      setStatus((prevStatus) => ({
-        total: prevStatus?.total || 0,
+      setStatus({
+        total,
         processed: 0,
-        pending: prevStatus?.total || 0,
+        pending: total,
         failed: 0,
         progress: 0,
         task_status: 'processing'
-      }));
+      });
 
       // 先建立 SSE 连接
       eventSourceRef.current = taggingApi.streamProgress(
