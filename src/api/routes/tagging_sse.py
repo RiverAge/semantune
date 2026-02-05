@@ -60,7 +60,6 @@ async def event_generator():
         sys.stderr.flush()
 
         last_heartbeat = asyncio.get_event_loop().time()
-        iteration = 0
 
         logger.info("进入主循环...")
 
@@ -76,15 +75,13 @@ async def event_generator():
                     logger.info(f"SSE 任务完成，状态: {tagging_progress['status']}")
                     break
             except asyncio.TimeoutError:
-                iteration += 1
                 current_time = asyncio.get_event_loop().time()
 
-                logger.debug(f"SSE 心跳检查: iteration={iteration}, 状态: {tagging_progress['status']}")
+                logger.debug(f"SSE 心跳检查，状态: {tagging_progress['status']}")
 
-                if current_time - last_heartbeat >= 3.0:
-                    comment = f"heartbeat {iteration} - status: {tagging_progress['status']}"
-                    logger.info(f"发送心跳包: {comment}")
-                    yield f": {comment}\n\n"
+                if current_time - last_heartbeat >= 5.0:
+                    logger.info(f"发送心跳包 (当前进度): {tagging_progress}")
+                    yield f"data: {json.dumps(tagging_progress)}\n\n"
                     last_heartbeat = current_time
                     sys.stderr.flush()
 
@@ -107,7 +104,6 @@ async def event_generator():
         logger.info("SSE 连接被取消 (外层)")
     except Exception as e:
         logger.error(f"SSE 生成器错误 (外层): {e}", exc_info=True)
-        yield f"data: {json.dumps({'error': str(e)})}\n\n"
     finally:
         if queue in sse_clients:
             sse_clients.remove(queue)
