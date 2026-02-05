@@ -24,7 +24,16 @@ sys.path.insert(0, str(BASE_DIR / "src"))
 from __init__ import __version__ as VERSION
 
 # 数据库路径
-NAV_DB = str(DATA_ROOT / "navidrome.db")
+# Navidrome 数据库（支持独立挂载，优先使用环境变量）
+NAVIDROME_DB_PATH = os.getenv("SEMANTUNE_NAVIDROME_DB_PATH")
+if NAVIDROME_DB_PATH:
+    # Docker 部署使用独立挂载的 Navidrome 数据库
+    NAV_DB = NAVIDROME_DB_PATH
+else:
+    # 本地开发使用 data 目录下的数据库
+    NAV_DB = str(DATA_ROOT / "navidrome.db")
+
+# 语义数据库（始终在 data 目录下）
 SEM_DB = str(DATA_ROOT / "semantic.db")
 
 # 日志目录

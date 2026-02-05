@@ -47,7 +47,28 @@ def validate_config() -> Dict[str, Any]:
     sem_db_path = Path(SEM_DB)
     
     if not nav_db_path.exists():
-        errors.append(f"Navidrome 数据库文件不存在: {NAV_DB}。请确保挂载了 Navidrome 数据库目录，并指定正确的数据库文件名（通常是 navidrome.db）。")
+        errors.append(f"""
+Navidrome 数据库文件不存在: {NAV_DB}
+
+请按以下步骤挂载 Navidrome 数据库：
+
+1. 找到你的 Navidrome 数据库文件（通常在以下位置）:
+   - Docker: <navidrome_container>/data/navidrome.db
+   - 直接安装: /var/lib/navidrome/data/navidrome.db
+
+2. 启动容器时挂载数据库目录:
+   docker run -d --name semantune -p 8000:8000 \\
+     -v $(pwd)/semantune-data:/app/data \\
+     -v /path/to/your/navidrome:/app/navidrome:ro \\
+     ghcr.io/riverage/semantune:latest
+
+3. 确保挂载目录中包含 navidrome.db 文件
+
+常见的 Navidrome 数据库位置:
+   - Docker Compose: ./navidrome-data/navidrome.db
+   - Arch Linux: /var/lib/navidrome/navidrome.db
+   - macOS: ~/Music/navidrome/navidrome.db
+""")
     elif not nav_db_path.is_file():
         errors.append(f"Navidrome 路径不是有效文件: {NAV_DB}")
     else:
