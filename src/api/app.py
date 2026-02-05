@@ -143,18 +143,21 @@ async def health_check():
 @app.on_event("startup")
 async def startup_event():
     """应用启动事件"""
-    logger.info("🚀 API 服务启动")
+    logger.info(f"🚀 Navidrome 语义音乐推荐系统 v{VERSION} 启动中...")
 
     # 运行数据库迁移
     try:
         from src.core.migration import run_migrations
         result = run_migrations()
-        if result["applied_migrations"]:
-            logger.info(f"✅ 应用了 {len(result['applied_migrations'])} 个数据库迁移")
-        else:
+        if result["status"] == "success":
+            logger.info(f"✅ 应用了 {len(result['applied'])} 个数据库迁移: {', '.join(result['applied'])}")
+        elif result["status"] == "up_to_date":
             logger.info("✅ 数据库已是最新版本，无需迁移")
+        else:
+            logger.error(f"❌ 数据库迁移失败: {result['message']}")
+            raise
     except Exception as e:
-        logger.error(f"❌ 数据库迁移失败: {e}")
+        logger.error(f"❌ 数据库迁移异常: {e}")
         raise
 
     # 验证配置
@@ -164,6 +167,8 @@ async def startup_event():
     except Exception as e:
         logger.error(f"❌ 配置验证失败: {e}")
         raise
+
+    logger.info(f"✅ Navidrome 语义音乐推荐系统 v{VERSION} 启动成功")
 
 
 @app.on_event("shutdown")
