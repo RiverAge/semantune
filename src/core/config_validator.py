@@ -3,6 +3,7 @@
 """
 
 import os
+import sqlite3
 from typing import List, Dict, Any
 from pathlib import Path
 
@@ -45,11 +46,24 @@ def validate_config() -> Dict[str, Any]:
     nav_db_path = Path(NAV_DB)
     sem_db_path = Path(SEM_DB)
     
-    if not nav_db_path.parent.exists():
-        warnings.append(f"Navidrome 数据库目录不存在: {nav_db_path.parent}")
+    if not nav_db_path.exists():
+        errors.append(f"Navidrome 数据库文件不存在: {NAV_DB}。请确保挂载了 Navidrome 数据库目录，并指定正确的数据库文件名（通常是 navidrome.db）。")
+    elif not nav_db_path.is_file():
+        errors.append(f"Navidrome 路径不是有效文件: {NAV_DB}")
+    else:
+        try:
+            import sqlite3
+            conn = sqlite3.connect(str(nav_db_path))
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
+            if not cursor.fetchone():
+                errors.append(f"Navidrome 数据库为空或无有效表: {NAV_DB}")
+            conn.close()
+        except sqlite3.Error as e:
+            errors.append(f"Navidrome 数据库无法访问或损坏: {e}")
     
     if not sem_db_path.parent.exists():
-        warnings.append(f"语义数据库目录不存在: {sem_db_path.parent}")
+        sem_db_path.parent.mkdir(parents=True, exist_ok=True)
     
     # 3. 验证目录
     for dir_path, dir_name in [(LOG_DIR, "日志目录"), (EXPORT_DIR, "导出目录")]:
