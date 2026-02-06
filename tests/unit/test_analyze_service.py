@@ -32,7 +32,7 @@ class TestAnalyzeService:
 
     def test_get_distribution_all_valid_fields(self):
         """测试所有有效字段"""
-        valid_fields = ['mood', 'energy', 'genre', 'region', 'scene', 'subculture']
+        valid_fields = ['mood', 'energy', 'genre', 'style', 'scene', 'region', 'culture', 'language']
         sem_repo = Mock()
         sem_repo.get_distribution.return_value = {}
         

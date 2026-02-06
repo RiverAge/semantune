@@ -23,7 +23,7 @@ class SemanticStatsRepository:
         获取指定字段的分布统计
 
         Args:
-            field: 字段名称 (mood, energy, genre, region, scene, subculture)
+            field: 字段名称 (mood, energy, genre, style, scene, region, culture, language)
 
         Returns:
             分布列表，每项包含 label, count, percentage
@@ -124,7 +124,7 @@ class SemanticStatsRepository:
         """).fetchone()[0]
 
         none_stats = {}
-        for field in ['mood', 'energy', 'scene', 'region', 'subculture', 'genre']:
+        for field in ['mood', 'energy', 'genre', 'style', 'scene', 'region', 'culture', 'language']:
             none_count = self.sem_conn.execute(
                 f"SELECT COUNT(*) FROM music_semantic WHERE {field} = 'None'"
             ).fetchone()[0]

@@ -61,7 +61,7 @@ async def get_distribution(field: str):
     """
     获取指定字段的分布分析
 
-    可用字段：mood, energy, genre, region, scene, subculture
+    可用字段：mood, energy, genre, style, scene, region, culture, language
 
     - **field**: 字段名称
     """

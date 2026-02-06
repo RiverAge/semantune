@@ -173,8 +173,8 @@ def process_batch_tags_sync(songs: List[dict]):
                     if result:
                         sem_conn.execute("""
                             INSERT OR REPLACE INTO music_semantic
-                            (file_id, title, artist, album, mood, energy, genre, region, subculture, scene, confidence)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            (file_id, title, artist, album, mood, energy, genre, style, scene, region, culture, language, confidence)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """, (
                             f"song_{idx}",
                             song["title"],
@@ -183,9 +183,11 @@ def process_batch_tags_sync(songs: List[dict]):
                             result['tags'].get("mood"),
                             result['tags'].get("energy"),
                             result['tags'].get("genre"),
-                            result['tags'].get("region"),
-                            result['tags'].get("subculture"),
+                            result['tags'].get("style"),
                             result['tags'].get("scene"),
+                            result['tags'].get("region"),
+                            result['tags'].get("culture"),
+                            result['tags'].get("language"),
                             result['tags'].get("confidence", 0.0)
                         ))
                         sem_conn.commit()

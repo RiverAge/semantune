@@ -122,7 +122,7 @@ async def get_tagging_config_api():
     获取标签配置
 
     返回标签生成系统的 API 配置信息
-    注意：标签白名单（mood、energy、scene、region、subculture、genre）现在通过后台配置文件 config/tagging_config.yaml 管理
+    注意：标签白名单（mood、energy、genre、style、scene、region、culture、language）现在通过后台配置文件 config/tagging_config.yaml 管理
     """
     try:
         from config.constants import get_tagging_api_config
@@ -142,7 +142,7 @@ async def update_tagging_config_api(
     更新标签配置
 
     只更新 API 配置
-    注意：标签白名单（mood、energy、scene、region、subculture、genre）现在通过后台配置文件 config/tagging_config.yaml 管理
+    注意：标签白名单（mood、energy、genre、style、scene、region、culture、language）现在通过后台配置文件 config/tagging_config.yaml 管理
     """
     try:
         from config.constants import update_tagging_api_config
@@ -166,7 +166,7 @@ async def get_all_config_api():
     获取所有配置
 
     返回所有系统的配置信息
-    注意：标签白名单（mood、energy、scene、region、subculture、genre）现在通过后台配置文件 config/tagging_config.yaml 管理
+    注意：标签白名单（mood、energy、genre、style、scene、region、culture、language）现在通过后台配置文件 config/tagging_config.yaml 管理
     """
     try:
         from config.settings import get_recommend_config, get_user_profile_config, get_algorithm_config

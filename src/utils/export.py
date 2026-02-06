@@ -66,7 +66,7 @@ def export_play_history(nav_conn, sem_conn, user_id: str, output_file: str) -> i
         writer.writerow([
             'song_id', 'title', 'artist', 'album', 'year', 'original_genre',
             'play_count', 'starred', 'play_date',
-            'mood', 'energy', 'genre', 'region', 'subculture'
+            'mood', 'energy', 'genre', 'style', 'scene', 'region', 'culture', 'language'
         ])
 
         for row in rows:
@@ -74,16 +74,16 @@ def export_play_history(nav_conn, sem_conn, user_id: str, output_file: str) -> i
 
             # 获取语义标签
             sem_cursor = sem_conn.execute("""
-                SELECT mood, energy, genre, region, subculture
+                SELECT mood, energy, genre, style, scene, region, culture, language
                 FROM music_semantic
                 WHERE file_id = ?
             """, (song_id,))
 
             sem_row = sem_cursor.fetchone()
             if sem_row:
-                mood, energy, genre, region, subculture = sem_row
+                mood, energy, genre, style, scene, region, culture, language = sem_row
             else:
-                mood = energy = genre = region = subculture = 'N/A'
+                mood = energy = genre = style = scene = region = culture = language = 'N/A'
 
             writer.writerow([
                 song_id,
@@ -98,8 +98,11 @@ def export_play_history(nav_conn, sem_conn, user_id: str, output_file: str) -> i
                 mood,
                 energy,
                 genre,
+                style,
+                scene,
                 region,
-                subculture
+                culture,
+                language
             ])
 
     return len(rows)
@@ -120,7 +123,7 @@ def export_playlists(nav_conn, sem_conn, user_id: str, output_file: str) -> int:
         writer.writerow([
             'playlist_id', 'playlist_name', 'updated_at',
             'song_id', 'title', 'artist', 'album',
-            'mood', 'energy', 'genre', 'region'
+            'mood', 'energy', 'genre', 'style', 'scene', 'region', 'culture', 'language'
         ])
 
         for playlist in playlists:
@@ -140,21 +143,21 @@ def export_playlists(nav_conn, sem_conn, user_id: str, output_file: str) -> int:
 
                 # 获取语义标签
                 sem_cursor = sem_conn.execute("""
-                    SELECT mood, energy, genre, region
+                    SELECT mood, energy, genre, style, scene, region, culture, language
                     FROM music_semantic
                     WHERE file_id = ?
                 """, (song_id,))
 
                 sem_row = sem_cursor.fetchone()
                 if sem_row:
-                    mood, energy, genre, region = sem_row
+                    mood, energy, genre, style, scene, region, culture, language = sem_row
                 else:
-                    mood = energy = genre = region = 'N/A'
+                    mood = energy = genre = style = scene = region = culture = language = 'N/A'
 
                 writer.writerow([
                     playlist_id, playlist_name, updated_at,
                     song_id, title, artist, album,
-                    mood, energy, genre, region
+                    mood, energy, genre, style, scene, region, culture, language
                 ])
 
     return len(playlists)

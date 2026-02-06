@@ -21,7 +21,7 @@ class SemanticQueryRepository:
         """
         self.sem_conn = sem_conn
 
-    def _parse_tag_value(self, value: Optional[str], field: str) -> Union[str, List[str], None]:
+    def _parse_tag_value(self, value: Optional[str], field: str) -> Union[str, List[str], float, None]:
         """
         解析标签值（如果是数组字段则从 JSON 转为数组）
 
@@ -30,9 +30,13 @@ class SemanticQueryRepository:
             field: 字段名
 
         Returns:
-            解析后的值（数组字段返回 list，其他返回 str 或 None）
+            解析后的值（数组字段返回 list，其他返回 str、float 或 None）
         """
-        if value is None or not value.strip():
+        if value is None:
+            return None
+        if isinstance(value, float):
+            return value
+        if not value.strip():
             return None
         if field in self.array_fields:
             try:

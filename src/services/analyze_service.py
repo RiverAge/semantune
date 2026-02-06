@@ -24,12 +24,12 @@ class AnalyzeService:
         获取指定字段的分布分析
 
         Args:
-            field: 字段名称 (mood, energy, genre, region, scene, subculture)
+            field: 字段名称 (mood, energy, genre, style, scene, region, culture, language)
 
         Returns:
             分布分析结果
         """
-        valid_fields = ['mood', 'energy', 'genre', 'region', 'scene', 'subculture']
+        valid_fields = ['mood', 'energy', 'genre', 'style', 'scene', 'region', 'culture', 'language']
         if field not in valid_fields:
             raise ValueError(f"无效的字段，可用字段: {', '.join(valid_fields)}")
 

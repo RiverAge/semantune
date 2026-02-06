@@ -45,7 +45,7 @@ class SongRepository:
 
         # 从 Semantic 获取标签
         sem_cursor = self.sem_conn.execute("""
-            SELECT mood, energy, scene, region, subculture, genre, confidence
+            SELECT mood, energy, genre, style, scene, region, culture, language, confidence
             FROM music_semantic
             WHERE file_id = ?
         """, (file_id,))
@@ -64,20 +64,24 @@ class SongRepository:
             result.update({
                 'mood': sem_row[0],
                 'energy': sem_row[1],
-                'scene': sem_row[2],
-                'region': sem_row[3],
-                'subculture': sem_row[4],
-                'genre': sem_row[5],
-                'confidence': sem_row[6],
+                'genre': sem_row[2],
+                'style': sem_row[3],
+                'scene': sem_row[4],
+                'region': sem_row[5],
+                'culture': sem_row[6],
+                'language': sem_row[7],
+                'confidence': sem_row[8],
             })
         else:
             result.update({
                 'mood': None,
                 'energy': None,
+                'genre': None,
+                'style': None,
                 'scene': None,
                 'region': None,
-                'subculture': None,
-                'genre': None,
+                'culture': None,
+                'language': None,
                 'confidence': None,
             })
 
@@ -109,7 +113,7 @@ class SongRepository:
 
         # 从 Semantic 获取标签
         sem_cursor = self.sem_conn.execute(f"""
-            SELECT file_id, mood, energy, scene, region, subculture, genre, confidence
+            SELECT file_id, mood, energy, genre, style, scene, region, culture, language, confidence
             FROM music_semantic
             WHERE file_id IN ({placeholders})
         """, file_ids)
@@ -117,11 +121,13 @@ class SongRepository:
         sem_tags = {row[0]: {
             'mood': row[1],
             'energy': row[2],
-            'scene': row[3],
-            'region': row[4],
-            'subculture': row[5],
-            'genre': row[6],
-            'confidence': row[7],
+            'genre': row[3],
+            'style': row[4],
+            'scene': row[5],
+            'region': row[6],
+            'culture': row[7],
+            'language': row[8],
+            'confidence': row[9],
         } for row in sem_cursor.fetchall()}
 
         # 合并数据
@@ -137,10 +143,12 @@ class SongRepository:
                     song.update({
                         'mood': None,
                         'energy': None,
+                        'genre': None,
+                        'style': None,
                         'scene': None,
                         'region': None,
-                        'subculture': None,
-                        'genre': None,
+                        'culture': None,
+                        'language': None,
                         'confidence': None,
                     })
                 result.append(song)

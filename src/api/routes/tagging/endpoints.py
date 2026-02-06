@@ -366,8 +366,8 @@ async def get_tagging_history(limit: int = 20, offset: int = 0):
         with sem_db_context() as sem_conn:
             # 获取历史记录
             cursor = sem_conn.execute("""
-                SELECT file_id, title, artist, album, mood, energy, scene,
-                       region, subculture, genre, confidence, updated_at
+                SELECT file_id, title, artist, album, mood, energy, genre,
+                       style, scene, region, culture, language, confidence, updated_at
                 FROM music_semantic
                 ORDER BY updated_at DESC
                 LIMIT ? OFFSET ?
@@ -388,13 +388,15 @@ async def get_tagging_history(limit: int = 20, offset: int = 0):
                     "tags": {
                         "mood": row[4],
                         "energy": row[5],
-                        "scene": row[6],
-                        "region": row[7],
-                        "subculture": row[8],
-                        "genre": row[9],
-                        "confidence": row[10]
+                        "genre": row[6],
+                        "style": row[7],
+                        "scene": row[8],
+                        "region": row[9],
+                        "culture": row[10],
+                        "language": row[11],
+                        "confidence": row[12]
                     },
-                    "updated_at": row[11]
+                    "updated_at": row[13]
                 })
 
         return ApiResponse.success_response(
@@ -421,8 +423,8 @@ async def export_history_md():
     try:
         with sem_db_context() as sem_conn:
             cursor = sem_conn.execute("""
-                SELECT title, artist, album, mood, energy, scene,
-                       region, subculture, genre, confidence, updated_at
+                SELECT title, artist, album, mood, energy, genre,
+                       style, scene, region, culture, language, confidence, updated_at
                 FROM music_semantic
                 ORDER BY updated_at DESC
             """)
@@ -442,14 +444,13 @@ async def export_history_md():
             markdown_lines = [
                 "# 标签生成历史记录\n\n",
                 f"共 {len(rows)} 条记录\n\n",
-                "| 歌曲名 | 艺术家 | 专辑 | 心情 | 能量 | 场景 | 地区 | 文化 | 类型 | 置信度 | 更新时间 |\n",
-                "|--------|--------|------|------|------|------|------|------|------|--------|----------|\n"
+                "| 歌曲名 | 艺术家 | 专辑 | 心情 | 能量 | 流派 | 风格 | 场景 | 地区 | 文化 | 语言 | 置信度 | 更新时间 |\n",
+                "|--------|--------|------|------|------|------|------|------|------|------|------|--------|----------|\n"
             ]
 
             for row in rows:
-                tags = row[3:10]
                 markdown_lines.append(
-                    f"| {row[0]} | {row[1]} | {row[2]} | {tags[0]} | {tags[1]} | {tags[2]} | {tags[3]} | {tags[4]} | {tags[5]} | {tags[6]:.2f} | {row[10]} |\n"
+                    f"| {row[0]} | {row[1]} | {row[2]} | {row[3]} | {row[4]} | {row[5]} | {row[6]} | {row[7]} | {row[8]} | {row[9]} | {row[10]} | {row[11]:.2f} | {row[12]} |\n"
                 )
 
             content = "".join(markdown_lines)

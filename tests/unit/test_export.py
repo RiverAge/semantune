@@ -122,7 +122,7 @@ class TestExportPlayHistory:
             assert header == [
                 'song_id', 'title', 'artist', 'album', 'year', 'original_genre',
                 'play_count', 'starred', 'play_date',
-                'mood', 'energy', 'genre', 'region', 'subculture'
+                'mood', 'energy', 'genre', 'style', 'scene', 'region', 'culture', 'language'
             ]
             assert sum(1 for _ in reader) == 0
 
@@ -139,8 +139,8 @@ class TestExportPlayHistory:
         mock_sem_conn = Mock()
         mock_sem_cursor = Mock()
         mock_sem_cursor.fetchone.side_effect = [
-            ('Energetic', 'High', 'Rock', 'US', 'Alternative'),
-            ('Relaxed', 'Low', 'Pop', 'UK', None)
+            ('Energetic', 'High', 'Rock', 'Alternative', 'Driving', 'US', 'Western', 'English'),
+            ('Relaxed', 'Low', 'Pop', 'Ballad', 'Work', 'UK', 'English', 'English')
         ]
         mock_sem_conn.execute.return_value = mock_sem_cursor
 
@@ -158,12 +158,12 @@ class TestExportPlayHistory:
             assert rows[0] == [
                 'song_001', 'Song 1', 'Artist 1', 'Album 1', '2020', 'Rock',
                 '10', 'Yes', '2024-01-15',
-                'Energetic', 'High', 'Rock', 'US', 'Alternative'
+                'Energetic', 'High', 'Rock', 'Alternative', 'Driving', 'US', 'Western', 'English'
             ]
             assert rows[1] == [
                 'song_002', 'Song 2', 'Artist 2', 'Album 2', '2021', 'Pop',
                 '5', 'No', '2024-01-20',
-                'Relaxed', 'Low', 'Pop', 'UK', ''
+                'Relaxed', 'Low', 'Pop', 'Ballad', 'Work', 'UK', 'English', 'English'
             ]
 
     def test_export_play_history_no_semantic_data(self, tmp_path):
@@ -189,7 +189,7 @@ class TestExportPlayHistory:
             reader = csv.reader(f)
             next(reader)
             row = next(reader)
-            assert row[-5:] == ['N/A', 'N/A', 'N/A', 'N/A', 'N/A']
+            assert row[-8:] == ['N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A', 'N/A']
 
     def test_export_play_history_starred_true(self, tmp_path):
         """测试starred列的显示"""
@@ -202,7 +202,7 @@ class TestExportPlayHistory:
 
         mock_sem_conn = Mock()
         mock_sem_cursor = Mock()
-        mock_sem_cursor.fetchone.return_value = ('Mood', 'Energy', 'Genre', 'Region', 'Sub')
+        mock_sem_cursor.fetchone.return_value = ('Mood', 'Energy', 'Genre', 'Style', 'Scene', 'Region', 'Culture', 'Language')
         mock_sem_conn.execute.return_value = mock_sem_cursor
 
         output_file = tmp_path / "play_history.csv"
@@ -225,7 +225,7 @@ class TestExportPlayHistory:
 
         mock_sem_conn = Mock()
         mock_sem_cursor = Mock()
-        mock_sem_cursor.fetchone.return_value = ('Mood', 'Energy', 'Genre', 'Region', 'Sub')
+        mock_sem_cursor.fetchone.return_value = ('Mood', 'Energy', 'Genre', 'Style', 'Scene', 'Region', 'Culture', 'Language')
         mock_sem_conn.execute.return_value = mock_sem_cursor
 
         output_file = tmp_path / "play_history.csv"
@@ -295,7 +295,7 @@ class TestExportPlaylists:
             assert header == [
                 'playlist_id', 'playlist_name', 'updated_at',
                 'song_id', 'title', 'artist', 'album',
-                'mood', 'energy', 'genre', 'region'
+                'mood', 'energy', 'genre', 'style', 'scene', 'region', 'culture', 'language'
             ]
 
     def test_export_playlists_with_data(self, tmp_path):
@@ -315,9 +315,9 @@ class TestExportPlaylists:
             ('song_003', 'Song C', 'Artist C', 'Album C')
         ]
 
-        semantic_data_1 = ('Energetic', 'High', 'Rock', 'US')
-        semantic_data_2 = (None, None, None, None)
-        semantic_data_3 = ('Relaxed', 'Low', 'Pop', 'UK')
+        semantic_data_1 = ('Energetic', 'High', 'Rock', 'Alternative', 'Driving', 'US', 'Western', 'English')
+        semantic_data_2 = (None, None, None, None, None, None, None, None)
+        semantic_data_3 = ('Relaxed', 'Low', 'Pop', 'Ballad', 'Work', 'UK', 'English', 'English')
 
         def nav_execute(query, params):
             cursor = Mock()
