@@ -185,13 +185,27 @@ async def get_tagging_status():
             sem_repo = SemanticRepository(sem_conn)
 
             # 获取 Navidrome 中的所有歌曲
-            total = nav_repo.get_total_count()
+            nav_songs = nav_repo.get_all_songs()
+            total = len(nav_songs)
+            nav_ids = set(song['id'] for song in nav_songs)
 
-            # 获取已标签的歌曲
-            tagged = sem_repo.get_total_count()
+            # 获取标签数据库中的所有歌曲
+            sem_songs = sem_repo.get_all_songs()
+            sem_ids = set(song['file_id'] for song in sem_songs)
 
-            # 获取待处理的歌曲
-            pending = total - tagged
+            # 实际已标记的歌曲（既在Navidrome存在又在标签数据库存在）
+            tagged = len(nav_ids & sem_ids)
+
+            # 待处理的歌曲（在Navidrome存在但不在标签数据库）
+            pending = len(nav_ids - sem_ids)
+
+            # 孤儿标签（在标签数据库存在但不在Navidrome存在）
+            orphan_ids = list(sem_ids - nav_ids)
+            orphans = len(orphan_ids)
+            if orphans > 0:
+                logger.info(f"发现 {orphans} 个孤儿标签，自动清理...")
+                sem_repo.delete_songs_by_ids(orphan_ids)
+                logger.info(f"成功清理 {orphans} 个孤儿标签")
 
             # 获取失败的歌曲（这里简化处理，实际可能需要更复杂的逻辑）
             failed = 0

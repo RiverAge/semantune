@@ -1,4 +1,4 @@
-import { Tag, Play, Clock, AlertCircle, CheckCircle, History, Download } from 'lucide-react';
+import { Tag, Play, Clock, AlertCircle, CheckCircle, History, Download, Trash2 } from 'lucide-react';
 import type { TaggingStatus } from '../../types';
 
 interface BatchTaggingProps {
@@ -15,6 +15,7 @@ interface BatchTaggingProps {
   onStopTagging: () => void;
   onLoadHistory: () => void;
   onHistoryOffsetChange: (offset: number) => void;
+  onCleanup?: () => void;
   highlightProcessed?: boolean;
   onExportHistory?: () => void;
 }
@@ -33,6 +34,7 @@ export default function BatchTagging({
   onStopTagging,
   onLoadHistory,
   onHistoryOffsetChange,
+  onCleanup,
   highlightProcessed = false,
   onExportHistory,
 }: BatchTaggingProps) {
@@ -109,19 +111,27 @@ export default function BatchTagging({
               使用 {config.model} 模型为未标签的歌曲生成语义标签
             </p>
           </div>
-          {isGenerating ? (
-            <button onClick={onStopTagging} className="btn btn-danger">
-              中止
-            </button>
-          ) : (
-            <button
-              onClick={onStartTagging}
-              disabled={status?.pending === 0}
-              className="btn btn-primary"
-            >
-              开始生成
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {onCleanup && !isGenerating && (
+              <button onClick={onCleanup} className="btn btn-secondary">
+                <Trash2 className="h-4 w-4 mr-1" />
+                清理孤儿
+              </button>
+            )}
+            {isGenerating ? (
+              <button onClick={onStopTagging} className="btn btn-danger">
+                中止
+              </button>
+            ) : (
+              <button
+                onClick={onStartTagging}
+                disabled={status?.pending === 0}
+                className="btn btn-primary"
+              >
+                开始生成
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

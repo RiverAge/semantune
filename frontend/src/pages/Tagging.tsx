@@ -28,6 +28,7 @@ export default function Tagging() {
     handleStopTagging,
     loadHistory,
     handleExportHistory,
+    handleCleanup,
     highlightProcessed,
   } = useTagging();
 
@@ -67,6 +68,7 @@ export default function Tagging() {
           onStopTagging={handleStopTagging}
           onLoadHistory={loadHistory}
           onHistoryOffsetChange={setHistoryOffset}
+          onCleanup={handleCleanup}
           highlightProcessed={highlightProcessed}
           onExportHistory={handleExportHistory}
         />

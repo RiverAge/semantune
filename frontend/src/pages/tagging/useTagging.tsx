@@ -119,6 +119,20 @@ export function useTagging() {
     }
   };
 
+  const handleCleanup = async () => {
+    try {
+      const response = await taggingApi.cleanup() as any;
+      if (response.success) {
+        setSuccessMessage(`成功清理了 ${response.data.count} 个孤儿标签`);
+        setTimeout(() => setSuccessMessage(null), 3000);
+        refreshStatusAndHistory();
+      }
+    } catch (err) {
+      console.error('清理孤儿标签失败:', err);
+      setError(err instanceof Error ? err.message : '清理失败');
+    }
+  };
+
   const refreshStatusAndHistory = async () => {
     await Promise.all([loadStatus(), loadHistory()]);
   };
@@ -293,6 +307,7 @@ export function useTagging() {
     handleStopTagging,
     loadHistory,
     handleExportHistory,
+    handleCleanup,
     highlightProcessed,
   };
 }

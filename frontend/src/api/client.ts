@@ -174,6 +174,11 @@ export const taggingApi = {
     }>>('/tagging/history', { params: { limit, offset } });
   },
 
+  // 清理孤儿标签
+  cleanup: async () => {
+    return await api.post<ApiResponse<{ count: number }>>('/tagging/cleanup');
+  },
+
   // SSE 流式获取进度
     streamProgress: (onProgress: (data: any) => void, onComplete: () => void, onError: (_error: Error) => void) => {
     const isDev = import.meta.env.DEV;

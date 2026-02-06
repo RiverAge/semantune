@@ -181,12 +181,19 @@ class TaggingService:
         Returns:
             进度信息
         """
-        total = self.nav_repo.get_total_count()
-        tagged = self.sem_repo.get_total_count()
+        nav_songs = self.nav_repo.get_all_songs()
+        total = len(nav_songs)
+        nav_ids = set(s['id'] for s in nav_songs)
+
+        cursor = self.sem_repo.sem_conn.execute("SELECT file_id FROM music_semantic")
+        sem_ids = {row[0] for row in cursor.fetchall()}
+
+        tagged = len(nav_ids & sem_ids)
+        remaining = len(nav_ids - sem_ids)
 
         return {
             "total": total,
             "tagged": tagged,
-            "remaining": total - tagged,
+            "remaining": remaining,
             "percentage": round(tagged * 100.0 / total, 2) if total > 0 else 0
         }
