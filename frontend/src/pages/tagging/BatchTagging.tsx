@@ -1,4 +1,5 @@
 import { Tag, Play, Clock, AlertCircle, CheckCircle, History, Download, Trash2 } from 'lucide-react';
+import { TagDisplay } from '../../components/TagDisplay';
 import type { TaggingStatus } from '../../types';
 
 interface BatchTaggingProps {
@@ -198,25 +199,55 @@ export default function BatchTagging({
                     {new Date(item.updated_at).toLocaleString('zh-CN')}
                   </span>
                 </div>
-                <div className="flex flex-wrap gap-1">
-                  <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
-                    {item.tags.mood || 'N/A'}
-                  </span>
-                  <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
-                    {item.tags.energy || 'N/A'}
-                  </span>
-                  <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">
-                    {item.tags.genre || 'N/A'}
-                  </span>
-                  <span className="px-2 py-0.5 bg-pink-100 text-pink-700 text-xs rounded-full">
-                    {item.tags.scene || 'N/A'}
-                  </span>
-                  <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded-full">
-                    {item.tags.region || 'N/A'}
-                  </span>
-                  <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">
-                    {item.tags.subculture || 'N/A'}
-                  </span>
+                <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+                  {item.tags.mood && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-400 text-xs">情绪:</span>
+                      <TagDisplay value={item.tags.mood} emptyLabel="N/A" />
+                    </div>
+                  )}
+                  {item.tags.energy && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-400 text-xs">能量:</span>
+                      <span className="text-green-700 font-medium">{item.tags.energy}</span>
+                    </div>
+                  )}
+                  {item.tags.genre && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-400 text-xs">流派:</span>
+                      <TagDisplay value={item.tags.genre} emptyLabel="N/A" />
+                    </div>
+                  )}
+                  {item.tags.style && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-400 text-xs">风格:</span>
+                      <TagDisplay value={item.tags.style} emptyLabel="N/A" />
+                    </div>
+                  )}
+                  {item.tags.scene && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-400 text-xs">场景:</span>
+                      <TagDisplay value={item.tags.scene} emptyLabel="N/A" />
+                    </div>
+                  )}
+                  {item.tags.region && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-400 text-xs">地区:</span>
+                      <span className="text-gray-700">{item.tags.region}</span>
+                    </div>
+                  )}
+                  {item.tags.culture && item.tags.culture !== 'None' && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-400 text-xs">文化:</span>
+                      <span className="text-gray-700">{item.tags.culture}</span>
+                    </div>
+                  )}
+                  {item.tags.language && item.tags.language !== 'None' && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-400 text-xs">语言:</span>
+                      <span className="text-gray-700">{item.tags.language}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

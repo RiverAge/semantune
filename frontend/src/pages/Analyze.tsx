@@ -105,7 +105,7 @@ export default function Analyze() {
           </div>
 
           {/* 偏好分析 */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {/* 喜欢的歌手 */}
             <div className="card">
               <h3 className="text-lg font-semibold mb-4">喜欢的歌手</h3>
@@ -140,15 +140,85 @@ export default function Analyze() {
               </div>
             </div>
 
-            {/* 喜欢的情绪 */}
+            {/* 喜欢的风格 */}
             <div className="card">
-              <h3 className="text-lg font-semibold mb-4">喜欢的情绪</h3>
+              <h3 className="text-lg font-semibold mb-4">喜欢的风格</h3>
               <div className="space-y-2">
-                {userStats.top_moods.length > 0 ? (
-                  userStats.top_moods.map((mood) => (
-                    <div key={mood.mood} className="flex items-center justify-between">
-                      <span className="text-gray-700">{mood.mood}</span>
-                      <span className="text-sm text-gray-500">{mood.count} 首</span>
+                {userStats.top_styles && userStats.top_styles.length > 0 ? (
+                  userStats.top_styles.map((style) => (
+                    <div key={style.style} className="flex items-center justify-between">
+                      <span className="text-gray-700">{style.style}</span>
+                      <span className="text-sm text-gray-500">{style.count} 首</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-sm">暂无数据</p>
+                )}
+              </div>
+            </div>
+
+            {/* 喜欢的场域 */}
+            <div className="card">
+              <h3 className="text-lg font-semibold mb-4">喜欢的场景</h3>
+              <div className="space-y-2">
+                {userStats.top_scenes && userStats.top_scenes.length > 0 ? (
+                  userStats.top_scenes.map((scene) => (
+                    <div key={scene.scene} className="flex items-center justify-between">
+                      <span className="text-gray-700">{scene.scene}</span>
+                      <span className="text-sm text-gray-500">{scene.count} 首</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-sm">暂无数据</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* 地区分布 */}
+            <div className="card">
+              <h3 className="text-lg font-semibold mb-4">地区分布</h3>
+              <div className="space-y-2">
+                {userStats.top_regions && userStats.top_regions.length > 0 ? (
+                  userStats.top_regions.map((region) => (
+                    <div key={region.region} className="flex items-center justify-between">
+                      <span className="text-gray-700">{region.region}</span>
+                      <span className="text-sm text-gray-500">{region.count} 首</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-sm">暂无数据</p>
+                )}
+              </div>
+            </div>
+
+            {/* 文化类型 */}
+            <div className="card">
+              <h3 className="text-lg font-semibold mb-4">文化类型</h3>
+              <div className="space-y-2">
+                {userStats.top_cultures && userStats.top_cultures.length > 0 ? (
+                  userStats.top_cultures.filter(c => c.culture !== 'None').map((culture) => (
+                    <div key={culture.culture} className="flex items-center justify-between">
+                      <span className="text-gray-700">{culture.culture}</span>
+                      <span className="text-sm text-gray-500">{culture.count} 首</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-sm">暂无数据</p>
+                )}
+              </div>
+            </div>
+
+            {/* 语言分布 */}
+            <div className="card">
+              <h3 className="text-lg font-semibold mb-4">语言分布</h3>
+              <div className="space-y-2">
+                {userStats.top_languages && userStats.top_languages.length > 0 ? (
+                  userStats.top_languages.map((language) => (
+                    <div key={language.language} className="flex items-center justify-between">
+                      <span className="text-gray-700">{language.language}</span>
+                      <span className="text-sm text-gray-500">{language.count} 首</span>
                     </div>
                   ))
                 ) : (

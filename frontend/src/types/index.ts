@@ -12,9 +12,15 @@ export interface Recommendation {
   title: string;
   artist: string;
   album: string;
-  mood: string;
+  year?: string;
+  mood: string | string[];
   energy: string;
-  genre: string;
+  genre: string | string[];
+  style?: string | string[];
+  scene?: string | string[];
+  region: string;
+  culture: string;
+  language: string;
   similarity: number;
   reason: string;
 }
@@ -37,12 +43,14 @@ export interface Song {
   title: string;
   artist: string;
   album: string;
-  mood: string;
+  mood: string | string[];
   energy: string;
-  scene: string;
+  genre: string | string[];
+  style?: string | string[];
+  scene?: string | string[];
   region: string;
-  subculture: string;
-  genre: string;
+  culture: string;
+  language: string;
   confidence: number;
 }
 
@@ -50,7 +58,11 @@ export interface QueryRequest {
   mood?: string;
   energy?: string;
   genre?: string;
+  style?: string;
+  scene?: string;
   region?: string;
+  culture?: string;
+  language?: string;
   limit?: number;
 }
 
@@ -68,12 +80,14 @@ export interface TaggingPreview {
   title: string;
   artist: string;
   tags: {
-    mood: string;
+    mood: string | string[];
     energy: string;
-    scene: string;
+    genre: string | string[];
+    style?: string | string[];
+    scene?: string | string[];
     region: string;
-    subculture: string;
-    genre: string;
+    culture: string;
+    language: string;
   };
 }
 
@@ -86,7 +100,11 @@ export interface AnalysisStats {
   mood_distribution: Record<string, number>;
   energy_distribution: Record<string, number>;
   genre_distribution: Record<string, number>;
+  style_distribution: Record<string, number>;
+  scene_distribution: Record<string, number>;
   region_distribution: Record<string, number>;
+  culture_distribution: Record<string, number>;
+  language_distribution: Record<string, number>;
 }
 
 export interface HealthData {
@@ -111,8 +129,14 @@ export interface UserStats {
   starred_count: number;
   playlist_count: number;
   top_artists: Array<{ artist: string; count: number }>;
-  top_genres: Array<{ genre: string; count: number }>;
   top_moods: Array<{ mood: string; count: number }>;
+  top_energies: Array<{ energy: string; count: number }>;
+  top_genres: Array<{ genre: string; count: number }>;
+  top_styles: Array<{ style: string; count: number }>;
+  top_scenes: Array<{ scene: string; count: number }>;
+  top_regions: Array<{ region: string; count: number }>;
+  top_cultures: Array<{ culture: string; count: number }>;
+  top_languages: Array<{ language: string; count: number }>;
 }
 
 // 配置相关类型
@@ -123,9 +147,13 @@ export interface RecommendConfig {
   diversity_max_per_album: number;
   exploration_ratio: number;
   tag_weights: {
+    genre: number;
     mood: number;
     energy: number;
-    genre: number;
+    style: number;
+    scene: number;
+    culture: number;
+    language: number;
     region: number;
   };
 }
@@ -149,6 +177,7 @@ export interface TaggingApiConfig {
   timeout: number;
   max_tokens: number;
   temperature: number;
+  top_p?: number;
   retry_delay: number;
   max_retries: number;
   retry_backoff: number;

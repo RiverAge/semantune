@@ -47,6 +47,18 @@ export default function TaggingConfig({
             />
           </div>
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Top-p 参数</label>
+            <input
+              type="number"
+              min="0"
+              max="1"
+              step="0.05"
+              value={(taggingApiConfig as any).top_p ?? 0.9}
+              onChange={(e) => setTaggingApiConfig({ ...taggingApiConfig, top_p: parseFloat(e.target.value) } as any)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">重试延迟（秒）</label>
             <input
               type="number"

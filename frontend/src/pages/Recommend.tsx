@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Music, User, Sparkles, Download } from 'lucide-react';
 import { recommendApi } from '../api/client';
+import { TagDisplay } from '../components/TagDisplay';
 import type { Recommendation, UserStats } from '../types';
 
 export default function Recommend() {
@@ -145,7 +146,7 @@ export default function Recommend() {
               <p className="text-xl font-bold">{userProfile.playlist_count}</p>
             </div>
           </div>
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <p className="text-sm font-medium text-gray-700 mb-2">喜欢的歌手</p>
               <div className="space-y-1">
@@ -172,6 +173,16 @@ export default function Recommend() {
                 {userProfile.top_moods.slice(0, 3).map((mood) => (
                   <p key={mood.mood} className="text-sm text-gray-600">
                     {mood.mood} ({mood.count})
+                  </p>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">语言分布</p>
+              <div className="space-y-1">
+                {userProfile.top_languages.slice(0, 3).map((lang) => (
+                  <p key={lang.language} className="text-sm text-gray-600">
+                    {lang.language} ({lang.count})
                   </p>
                 ))}
               </div>
@@ -218,22 +229,57 @@ export default function Recommend() {
                       </p>
                     </div>
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {song.mood && (
-                      <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
-                        {song.mood}
-                      </span>
-                    )}
-                    {song.energy && (
-                      <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
-                        {song.energy}
-                      </span>
-                    )}
-                    {song.genre && (
-                      <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
-                        {song.genre}
-                      </span>
-                    )}
+                  <div className="mt-2 space-y-1">
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+                      {song.mood && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-400 text-xs">情绪:</span>
+                          <TagDisplay value={song.mood} />
+                        </div>
+                      )}
+                      {song.energy && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-400 text-xs">能量:</span>
+                          <span className="text-green-700 font-medium">{song.energy}</span>
+                        </div>
+                      )}
+                      {song.genre && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-400 text-xs">流派:</span>
+                          <TagDisplay value={song.genre} />
+                        </div>
+                      )}
+                      {song.style && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-400 text-xs">风格:</span>
+                          <TagDisplay value={song.style} />
+                        </div>
+                      )}
+                      {song.scene && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-400 text-xs">场景:</span>
+                          <TagDisplay value={song.scene} />
+                        </div>
+                      )}
+                      {song.region && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-400 text-xs">地区:</span>
+                          <span className="text-gray-700">{song.region}</span>
+                        </div>
+                      )}
+                      {song.culture && song.culture !== 'None' && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-400 text-xs">文化:</span>
+                          <span className="text-gray-700">{song.culture}</span>
+                        </div>
+                      )}
+                      {song.language && song.language !== 'None' && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-400 text-xs">语言:</span>
+                          <span className="text-gray-700">{song.language}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   {song.reason && (
                     <p className="mt-2 text-sm text-gray-500">{song.reason}</p>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { TestTube, AlertCircle, CheckCircle } from 'lucide-react';
+import { TagDisplay } from '../../components/TagDisplay';
 import { taggingApi } from '../../api/client';
 
 interface TagTestProps {
@@ -112,32 +113,65 @@ export default function TagTest({ onTestSuccess }: TagTestProps) {
         <div className="card">
           <h2 className="text-lg font-semibold mb-4">生成结果</h2>
           <div className="p-4 bg-gray-50 rounded-lg">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="mb-3">
               <span className="font-medium text-gray-900">
                 {testResult.artist} - {testResult.title}
               </span>
-              <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
-                情绪: {testResult.tags.mood || 'N/A'}
-              </span>
-              <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
-                能量: {testResult.tags.energy || 'N/A'}
-              </span>
-              <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
-                流派: {testResult.tags.genre || 'N/A'}
-              </span>
-              <span className="px-2 py-1 bg-pink-100 text-pink-700 text-xs rounded-full">
-                场景: {testResult.tags.scene || 'N/A'}
-              </span>
-              <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded-full">
-                地区: {testResult.tags.region || 'N/A'}
-              </span>
-              <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full">
-                亚文化: {testResult.tags.subculture || 'N/A'}
-              </span>
+            </div>
+            <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+              {testResult.tags.mood && (
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400 text-xs">情绪:</span>
+                  <TagDisplay value={testResult.tags.mood} emptyLabel="N/A" />
+                </div>
+              )}
+              {testResult.tags.energy && (
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400 text-xs">能量:</span>
+                  <span className="text-green-700 font-medium">{testResult.tags.energy}</span>
+                </div>
+              )}
+              {testResult.tags.genre && (
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400 text-xs">流派:</span>
+                  <TagDisplay value={testResult.tags.genre} emptyLabel="N/A" />
+                </div>
+              )}
+              {testResult.tags.style && (
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400 text-xs">风格:</span>
+                  <TagDisplay value={testResult.tags.style} emptyLabel="N/A" />
+                </div>
+              )}
+              {testResult.tags.scene && (
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400 text-xs">场景:</span>
+                  <TagDisplay value={testResult.tags.scene} emptyLabel="N/A" />
+                </div>
+              )}
+              {testResult.tags.region && (
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400 text-xs">地区:</span>
+                  <span className="text-gray-700">{testResult.tags.region}</span>
+                </div>
+              )}
+              {testResult.tags.culture && testResult.tags.culture !== 'None' && (
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400 text-xs">文化:</span>
+                  <span className="text-gray-700">{testResult.tags.culture}</span>
+                </div>
+              )}
+              {testResult.tags.language && testResult.tags.language !== 'None' && (
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400 text-xs">语言:</span>
+                  <span className="text-gray-700">{testResult.tags.language}</span>
+                </div>
+              )}
               {testResult.tags.confidence && (
-                <span className="px-2 py-1 bg-gray-200 text-gray-700 text-xs rounded-full">
-                  置信度: {(testResult.tags.confidence * 100).toFixed(1)}%
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-400 text-xs">置信度:</span>
+                  <span className="text-gray-700">{(testResult.tags.confidence * 100).toFixed(1)}%</span>
+                </div>
               )}
             </div>
           </div>

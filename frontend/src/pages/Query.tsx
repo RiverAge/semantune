@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Filter } from 'lucide-react';
 import { queryApi, asApiResponse } from '../api/client';
+import { TagDisplay } from '../components/TagDisplay';
 import type { Song, QueryRequest } from '../types';
 
 export default function Query() {
@@ -12,7 +13,11 @@ export default function Query() {
     moods: string[];
     energies: string[];
     genres: string[];
+    styles: string[];
+    scenes: string[];
     regions: string[];
+    cultures: string[];
+    languages: string[];
   } | null>(null);
 
   useEffect(() => {
@@ -26,7 +31,11 @@ export default function Query() {
         moods: string[];
         energies: string[];
         genres: string[];
+        styles: string[];
+        scenes: string[];
         regions: string[];
+        cultures: string[];
+        languages: string[];
       }>(response);
       if (responseData.success && responseData.data) {
         setTagOptions(responseData.data);
@@ -122,6 +131,36 @@ export default function Query() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  风格
+                </label>
+                <select
+                  value={filters.style || ''}
+                  onChange={(e) => setFilters({ ...filters, style: e.target.value || undefined })}
+                  className="input"
+                >
+                  <option value="">全部</option>
+                  {tagOptions.styles.map((style) => (
+                    <option key={style} value={style}>{style}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  场景
+                </label>
+                <select
+                  value={filters.scene || ''}
+                  onChange={(e) => setFilters({ ...filters, scene: e.target.value || undefined })}
+                  className="input"
+                >
+                  <option value="">全部</option>
+                  {tagOptions.scenes.map((scene) => (
+                    <option key={scene} value={scene}>{scene}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   地区
                 </label>
                 <select
@@ -132,6 +171,36 @@ export default function Query() {
                   <option value="">全部</option>
                   {tagOptions.regions.map((region) => (
                     <option key={region} value={region}>{region}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  文化
+                </label>
+                <select
+                  value={filters.culture || ''}
+                  onChange={(e) => setFilters({ ...filters, culture: e.target.value || undefined })}
+                  className="input"
+                >
+                  <option value="">全部</option>
+                  {tagOptions.cultures.map((culture) => (
+                    <option key={culture} value={culture}>{culture}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  语言
+                </label>
+                <select
+                  value={filters.language || ''}
+                  onChange={(e) => setFilters({ ...filters, language: e.target.value || undefined })}
+                  className="input"
+                >
+                  <option value="">全部</option>
+                  {tagOptions.languages.map((language) => (
+                    <option key={language} value={language}>{language}</option>
                   ))}
                 </select>
               </div>
@@ -182,26 +251,57 @@ export default function Query() {
                     <p className="text-sm text-gray-600">
                       {song.artist} · {song.album}
                     </p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
-                        {song.mood}
-                      </span>
-                      <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
-                        {song.energy}
-                      </span>
-                      <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
-                        {song.genre}
-                      </span>
-                      {song.region && (
-                        <span className="px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded-full">
-                          {song.region}
-                        </span>
-                      )}
-                      {song.scene && (
-                        <span className="px-2 py-1 bg-pink-100 text-pink-700 text-xs rounded-full">
-                          {song.scene}
-                        </span>
-                      )}
+                    <div className="mt-2 space-y-1">
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+                        {song.mood && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-400 text-xs">情绪:</span>
+                            <TagDisplay value={song.mood} />
+                          </div>
+                        )}
+                        {song.energy && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-400 text-xs">能量:</span>
+                            <span className="text-green-700 font-medium">{song.energy}</span>
+                          </div>
+                        )}
+                        {song.genre && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-400 text-xs">流派:</span>
+                            <TagDisplay value={song.genre} />
+                          </div>
+                        )}
+                        {song.style && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-400 text-xs">风格:</span>
+                            <TagDisplay value={song.style} />
+                          </div>
+                        )}
+                        {song.scene && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-400 text-xs">场景:</span>
+                            <TagDisplay value={song.scene} />
+                          </div>
+                        )}
+                        {song.region && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-400 text-xs">地区:</span>
+                            <span className="text-gray-700">{song.region}</span>
+                          </div>
+                        )}
+                        {song.culture && song.culture !== 'None' && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-400 text-xs">文化:</span>
+                            <span className="text-gray-700">{song.culture}</span>
+                          </div>
+                        )}
+                        {song.language && song.language !== 'None' && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-gray-400 text-xs">语言:</span>
+                            <span className="text-gray-700">{song.language}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="text-right">
