@@ -86,10 +86,9 @@ htmlcov/
 
 # Temporary test data files
 test_*.json
-test_*.md
-test_*.txt
 test_validation.py
 test_instrumental.py
+test_40songs_tags.md
 
 # Result and report files (don't commit)
 *_summary.md
@@ -102,4 +101,13 @@ prompt_*.md
 *_optimization*.md
 *_example.txt
 *_and_result.txt
+*.md.bk
+
+# Temporary scripts (keep only test_instrumental_fix.py for regression testing)
+rerun_*.py
+migrate_*.py
+add_*.py
+append_*.py
+show_*.py
+test_validation_feature.py
 
