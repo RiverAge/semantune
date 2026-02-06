@@ -45,6 +45,10 @@ data/*.db
 data/*.db-shm
 data/*.db-wal
 
+# Backups
+backups/*.backup_*
+backups/*.db*
+
 # Exports
 exports/
 
