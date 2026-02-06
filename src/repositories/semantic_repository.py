@@ -3,7 +3,8 @@
 """
 
 import sqlite3
-from typing import List, Dict, Any, Optional
+import json
+from typing import List, Dict, Any, Optional, Union
 
 from .semantic_query import SemanticQueryRepository
 from .semantic_stats import SemanticStatsRepository
@@ -11,6 +12,8 @@ from .semantic_stats import SemanticStatsRepository
 
 class SemanticRepository:
     """语义数据访问类 - 组合查询和统计功能"""
+
+    array_fields = ['mood', 'genre', 'scene', 'style']
 
     def __init__(self, sem_conn: sqlite3.Connection):
         """
@@ -22,6 +25,42 @@ class SemanticRepository:
         self.sem_conn = sem_conn
         self.query = SemanticQueryRepository(sem_conn)
         self.stats = SemanticStatsRepository(sem_conn)
+
+    def _normalize_tag_value(self, value: Union[str, List[str], None]) -> Optional[str]:
+        """
+        将标签值归一化为字符串格式（数组字段转为 JSON 字符串）
+
+        Args:
+            value: 标签值（字符串或列表）
+
+        Returns:
+            归一化后的字符串，如果是数组则转为 JSON，单值或空则不变
+        """
+        if value is None:
+            return None
+        if isinstance(value, list):
+            return json.dumps(value)
+        return value
+
+    def _parse_tag_value(self, value: Optional[str], field: str) -> Union[str, List[str], None]:
+        """
+        解析标签值（如果是数组字段则从 JSON 转为数组）
+
+        Args:
+            value: 数据库中存储的字符串值
+            field: 字段名
+
+        Returns:
+            解析后的值（数组字段返回 list，其他返回 str 或 None）
+        """
+        if value is None or not value.strip():
+            return None
+        if field in self.array_fields:
+            try:
+                return json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                return value
+        return value
 
     # 查询方法 - 委托给 SemanticQueryRepository
     def get_song_tags(self, file_id: str) -> Optional[Dict[str, str]]:
@@ -97,7 +136,6 @@ class SemanticRepository:
         self.sem_conn.commit()
         return cursor.rowcount
 
-    # 保存方法 - 保留在主类中
     def save_song_tags(
         self,
         file_id: str,
@@ -122,13 +160,18 @@ class SemanticRepository:
         """
         self.sem_conn.execute("""
             INSERT OR REPLACE INTO music_semantic
-            (file_id, title, artist, album, mood, energy, scene, region, subculture, genre, confidence, model)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (file_id, title, artist, album, mood, energy, genre, style, scene, region, culture, language, confidence, model)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             file_id, title, artist, album,
-            tags.get('mood'), tags.get('energy'),
-            tags.get('scene'), tags.get('region'),
-            tags.get('subculture'), tags.get('genre'),
+            self._normalize_tag_value(tags.get('mood')),
+            self._normalize_tag_value(tags.get('energy')),
+            self._normalize_tag_value(tags.get('genre')),
+            self._normalize_tag_value(tags.get('style')),
+            self._normalize_tag_value(tags.get('scene')),
+            self._normalize_tag_value(tags.get('region')),
+            self._normalize_tag_value(tags.get('culture')),
+            self._normalize_tag_value(tags.get('language')),
             confidence, model
         ))
         self.sem_conn.commit()

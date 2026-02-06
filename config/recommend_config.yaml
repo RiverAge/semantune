@@ -3,30 +3,33 @@
 
 # 推荐基础配置
 recommend:
-  default_limit: 30              # 默认推荐数量
-  recent_filter_count: 100       # 过滤最近听过的 N 首歌
-  diversity_max_per_artist: 1    # 每个歌手最多推荐 N 首
-  diversity_max_per_album: 1     # 每张专辑最多推荐 N 首
-  exploration_ratio: 0.25        # 探索型歌曲占比（25%）
-  
-  # 标签权重
+  default_limit: 30
+  recent_filter_count: 100
+  diversity_max_per_artist: 1
+  diversity_max_per_album: 1
+  exploration_ratio: 0.25
+
   tag_weights:
-    mood: 2.0                    # 情绪最重要
-    energy: 1.5                  # 能量次之
-    genre: 1.2                   # 流派
-    region: 0.8                  # 地区权重较低
+    genre: 2.0
+    mood: 1.5
+    energy: 1.2
+    style: 1.0
+    scene: 0.8
+    culture: 0.6
+    language: 0.4
+    region: 0.4
 
 # 用户画像权重配置
 user_profile:
-  play_count: 1.0                # 每次播放的基础权重
-  starred: 10.0                  # 收藏的固定加分
-  in_playlist: 8.0               # 每个歌单的加分
-  time_decay_days: 90            # 时间衰减周期（天）
-  min_decay: 0.3                 # 最小衰减系数
+  play_count: 1.0
+  starred: 10.0
+  in_playlist: 8.0
+  time_decay_days: 90
+  min_decay: 0.3
 
 # 推荐算法配置
 algorithm:
-  exploitation_pool_multiplier: 3  # 利用型候选池倍数
-  exploration_pool_start: 0.25     # 探索型池起始位置（比例）
-  exploration_pool_end: 0.5        # 探索型池结束位置（比例）
-  randomness: 0.0                  # 随机扰动系数（0-1之间），设置为0以获得稳定的推荐结果
+  exploitation_pool_multiplier: 3
+  exploration_pool_start: 0.25
+  exploration_pool_end: 0.5
+  randomness: 0.0

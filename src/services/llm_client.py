@@ -44,7 +44,27 @@ class LLMClient:
         except (json.JSONDecodeError, ValueError, AttributeError):
             return None
 
-    def call_llm_api(self, title: str, artist: str, album: str) -> Tuple[Optional[Dict[str, Any]], str]:
+    def _get_custom_prompt_template(self) -> str:
+        """
+        从配置文件获取自定义提示词模板
+
+        Returns:
+            提示词模板字符串
+        """
+        import yaml
+        from pathlib import Path
+
+        config_path = Path(__file__).parent.parent.parent / "config" / "tagging_config.yaml"
+        if config_path.exists():
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f) or {}
+                custom_template = config.get("prompt_template")
+                if custom_template:
+                    return custom_template
+
+        return get_prompt_template()
+
+    def call_llm_api(self, title: str, artist: str, album: str, lyrics: Optional[str] = None) -> Tuple[Optional[Dict[str, Any]], str]:
         """
         调用 LLM API 生成标签
 
@@ -52,14 +72,20 @@ class LLMClient:
             title: 歌曲标题
             artist: 歌手名称
             album: 专辑名称
+            lyrics: 歌词文本（可选）
 
         Returns:
             Tuple[Optional[Dict[str, Any]], str]:
                 - 解析后的标签字典
                 - 原始 API 响应内容
         """
-        prompt_template = get_prompt_template()
-        prompt = prompt_template.format(title=title, artist=artist, album=album)
+        prompt_template = self._get_custom_prompt_template()
+
+        if lyrics and lyrics.strip():
+            lyrics_section = f"歌词:\n{lyrics.strip()}\n\n"
+        else:
+            lyrics_section = ""
+        prompt = prompt_template.format(title=title, artist=artist, album=album, lyrics_section=lyrics_section)
 
         api_config = get_tagging_api_config()
 
@@ -68,6 +94,7 @@ class LLMClient:
             "model": get_model(),
             "messages": [{"role": "user", "content": prompt}],
             "temperature": api_config.get("temperature", 0.1),
+            "top_p": api_config.get("top_p", 0.9),
             "max_tokens": api_config.get("max_tokens", 1024)
         }
 
@@ -75,11 +102,11 @@ class LLMClient:
         retry_delay = api_config.get("retry_delay", 1)
         retry_backoff = api_config.get("retry_backoff", 2)
 
-        # Debug: 输出发送给 LLM 的请求
         logger.debug(f"=== 发送给 LLM 的请求 ===")
         logger.debug(f"歌曲信息: {artist} - {title} ({album})")
+        if lyrics:
+            logger.debug(f"歌词长度: {len(lyrics)} 字符")
         logger.debug(f"API URL: {get_base_url()}")
-        logger.debug(f"请求头: {headers}")
         logger.debug(f"请求体: {json.dumps(payload, ensure_ascii=False, indent=2)}")
 
         for attempt in range(max_retries):
@@ -87,15 +114,14 @@ class LLMClient:
                 r = requests.post(get_base_url(), headers=headers, json=payload, timeout=api_config.get("timeout", 60))
                 r.raise_for_status()
                 content = r.json()['choices'][0]['message']['content']
-                
-                # Debug: 输出 LLM 的回复
+
                 logger.debug(f"=== LLM 的回复 ===")
                 logger.debug(f"状态码: {r.status_code}")
                 logger.debug(f"原始响应内容: {content}")
-                
+
                 parsed_json = self._safe_extract_json(content)
                 logger.debug(f"解析后的 JSON: {json.dumps(parsed_json, ensure_ascii=False, indent=2) if parsed_json else '解析失败'}")
-                
+
                 return parsed_json, content
             except requests.exceptions.RequestException as e:
                 logger.debug(f"请求失败 (尝试 {attempt + 1}/{max_retries}): {e}")

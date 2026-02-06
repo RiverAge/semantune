@@ -209,32 +209,65 @@ async def get_user_profile(username: str):
                 mood_counts = {}
                 energy_counts = {}
                 genre_counts = {}
+                style_counts = {}
+                scene_counts = {}
+                region_counts = {}
+                culture_counts = {}
+                language_counts = {}
 
                 for song in tagged_songs:
                     artist = song.get('artist')
                     mood = song.get('mood')
                     energy = song.get('energy')
                     genre = song.get('genre')
+                    style = song.get('style')
+                    scene = song.get('scene')
+                    region = song.get('region')
+                    culture = song.get('culture')
+                    language = song.get('language')
+
+                    def increment_counts(value, counts):
+                        """辅助函数：处理数组和单值的统计"""
+                        if value is None:
+                            return
+                        if isinstance(value, list):
+                            for v in value:
+                                if v and v != 'None':
+                                    counts[v] = counts.get(v, 0) + 1
+                        elif value != 'None':
+                            counts[value] = counts.get(value, 0) + 1
 
                     if artist and artist != 'None':
                         artist_counts[artist] = artist_counts.get(artist, 0) + 1
-                    if mood and mood != 'None':
-                        mood_counts[mood] = mood_counts.get(mood, 0) + 1
-                    if energy and energy != 'None':
-                        energy_counts[energy] = energy_counts.get(energy, 0) + 1
-                    if genre and genre != 'None':
-                        genre_counts[genre] = genre_counts.get(genre, 0) + 1
+                    increment_counts(mood, mood_counts)
+                    increment_counts(energy, energy_counts)
+                    increment_counts(genre, genre_counts)
+                    increment_counts(style, style_counts)
+                    increment_counts(scene, scene_counts)
+                    increment_counts(region, region_counts)
+                    increment_counts(culture, culture_counts)
+                    increment_counts(language, language_counts)
 
                 # 排序并取前 10
                 top_artists = sorted(artist_counts.items(), key=lambda x: x[1], reverse=True)[:10]
                 top_moods = sorted(mood_counts.items(), key=lambda x: x[1], reverse=True)[:10]
                 top_energies = sorted(energy_counts.items(), key=lambda x: x[1], reverse=True)[:10]
                 top_genres = sorted(genre_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+                top_styles = sorted(style_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+                top_scenes = sorted(scene_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+                top_regions = sorted(region_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+                top_cultures = sorted(culture_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+                top_languages = sorted(language_counts.items(), key=lambda x: x[1], reverse=True)[:10]
             else:
                 top_artists = []
                 top_moods = []
                 top_energies = []
                 top_genres = []
+                top_styles = []
+                top_scenes = []
+                top_regions = []
+                top_cultures = []
+                top_languages = []
 
             logger.info(f"获取用户画像: {username}")
 
@@ -249,7 +282,12 @@ async def get_user_profile(username: str):
                     "top_artists": [{"artist": a, "count": c} for a, c in top_artists],
                     "top_moods": [{"mood": m, "count": c} for m, c in top_moods],
                     "top_energies": [{"energy": e, "count": c} for e, c in top_energies],
-                    "top_genres": [{"genre": g, "count": c} for g, c in top_genres]
+                    "top_genres": [{"genre": g, "count": c} for g, c in top_genres],
+                    "top_styles": [{"style": s, "count": c} for s, c in top_styles],
+                    "top_scenes": [{"scene": s, "count": c} for s, c in top_scenes],
+                    "top_regions": [{"region": r, "count": c} for r, c in top_regions],
+                    "top_cultures": [{"culture": c, "count": count} for c, count in top_cultures],
+                    "top_languages": [{"language": l, "count": c} for l, c in top_languages]
                 }
             }
 

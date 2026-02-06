@@ -2,7 +2,7 @@
 标签生成服务 - 封装 LLM 标签生成的业务逻辑
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import logging
 
 from config.settings import get_model
@@ -32,7 +32,7 @@ class TaggingService:
         self.sem_repo = sem_repo
         self.llm_client = LLMClient()
 
-    def generate_tag(self, title: str, artist: str, album: str = "") -> Dict[str, Any]:
+    def generate_tag(self, title: str, artist: str, album: str = "", lyrics: Optional[str] = None) -> Dict[str, Any]:
         """
         为单首歌曲生成语义标签
 
@@ -40,11 +40,12 @@ class TaggingService:
             title: 歌曲标题
             artist: 歌手名称
             album: 专辑名称
+            lyrics: 歌词文本（可选）
 
         Returns:
             包含标签和原始响应的字典
         """
-        tags, raw_response = self.llm_client.call_llm_api(title, artist, album)
+        tags, raw_response = self.llm_client.call_llm_api(title, artist, album, lyrics)
 
         if not tags:
             raise ValueError("标签生成失败")
@@ -62,7 +63,7 @@ class TaggingService:
         批量生成标签
 
         Args:
-            songs: 歌曲列表，每首歌包含 title, artist, album
+            songs: 歌曲列表，每首歌包含 title, artist, album, lyrics (可选)
 
         Returns:
             标签结果列表
@@ -73,7 +74,8 @@ class TaggingService:
                 result = self.generate_tag(
                     title=song['title'],
                     artist=song['artist'],
-                    album=song.get('album', '')
+                    album=song.get('album', ''),
+                    lyrics=song.get('lyrics')
                 )
                 results.append({
                     "success": True,
@@ -113,13 +115,14 @@ class TaggingService:
 
         for idx, song in enumerate(untagged_songs, 1):
             try:
+                lyrics = self.nav_repo.extract_lyrics_text(song.get('lyrics'))
                 result = self.generate_tag(
                     title=song['title'],
                     artist=song['artist'],
-                    album=song['album']
+                    album=song['album'],
+                    lyrics=lyrics
                 )
 
-                # 保存到数据库
                 self.sem_repo.save_song_tags(
                     file_id=song['id'],
                     title=song['title'],

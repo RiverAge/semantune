@@ -3,6 +3,7 @@ Navidrome 数据库访问层 - 封装所有 Navidrome 相关的数据库操作
 """
 
 import sqlite3
+import json
 from typing import List, Dict, Any, Optional
 
 
@@ -26,7 +27,7 @@ class NavidromeRepository:
             歌曲列表，每首歌包含 id, title, artist, album 等信息
         """
         cursor = self.nav_conn.execute("""
-            SELECT id, title, artist, album, duration, path
+            SELECT id, title, artist, album, duration, path, lyrics
             FROM media_file
             ORDER BY title
         """)
@@ -43,7 +44,7 @@ class NavidromeRepository:
             歌曲信息字典，如果不存在则返回 None
         """
         cursor = self.nav_conn.execute("""
-            SELECT id, title, artist, album, duration, path
+            SELECT id, title, artist, album, duration, path, lyrics
             FROM media_file
             WHERE id = ?
         """, (file_id,))
@@ -65,7 +66,7 @@ class NavidromeRepository:
 
         placeholders = ','.join('?' * len(file_ids))
         cursor = self.nav_conn.execute(f"""
-            SELECT id, title, artist, album, duration, path
+            SELECT id, title, artist, album, duration, path, lyrics
             FROM media_file
             WHERE id IN ({placeholders})
         """, file_ids)
@@ -84,7 +85,7 @@ class NavidromeRepository:
             歌曲列表
         """
         cursor = self.nav_conn.execute("""
-            SELECT id, title, artist, album, duration, path
+            SELECT id, title, artist, album, duration, path, lyrics
             FROM media_file
             WHERE title LIKE ? OR artist LIKE ? OR album LIKE ?
             ORDER BY title
@@ -133,3 +134,28 @@ class NavidromeRepository:
             ORDER BY album
         """)
         return [{"name": row[0], "artist": row[1]} for row in cursor.fetchall()]
+
+    def extract_lyrics_text(self, lyrics: Optional[str]) -> Optional[str]:
+        """
+        从 lyrics 字段提取纯文本歌词
+
+        Args:
+            lyrics: 歌词字段，可能是 JSON 格式或纯文本
+
+        Returns:
+            提取的歌词文本，如果歌词为空则返回 None
+        """
+        if not lyrics or not lyrics.strip():
+            return None
+
+        lyrics = lyrics.strip()
+
+        try:
+            parsed = json.loads(lyrics)
+            if isinstance(parsed, dict):
+                return parsed.get('text')
+            elif isinstance(parsed, str):
+                return parsed
+            return str(parsed)
+        except (json.JSONDecodeError, TypeError):
+            return lyrics

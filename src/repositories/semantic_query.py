@@ -3,11 +3,14 @@
 """
 
 import sqlite3
-from typing import List, Dict, Any, Optional
+import json
+from typing import List, Dict, Any, Optional, Union
 
 
 class SemanticQueryRepository:
     """语义数据查询类"""
+
+    array_fields = ['mood', 'genre', 'scene', 'style']
 
     def __init__(self, sem_conn: sqlite3.Connection):
         """
@@ -18,7 +21,42 @@ class SemanticQueryRepository:
         """
         self.sem_conn = sem_conn
 
-    def get_song_tags(self, file_id: str) -> Optional[Dict[str, str]]:
+    def _parse_tag_value(self, value: Optional[str], field: str) -> Union[str, List[str], None]:
+        """
+        解析标签值（如果是数组字段则从 JSON 转为数组）
+
+        Args:
+            value: 数据库中存储的字符串值
+            field: 字段名
+
+        Returns:
+            解析后的值（数组字段返回 list，其他返回 str 或 None）
+        """
+        if value is None or not value.strip():
+            return None
+        if field in self.array_fields:
+            try:
+                return json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                return value
+        return value
+
+    def _parse_row(self, row: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        解析一行数据，处理数组字段
+
+        Args:
+            row: 原始行数据
+
+        Returns:
+            解析后的数据
+        """
+        parsed = {}
+        for key, value in row.items():
+            parsed[key] = self._parse_tag_value(value, key)
+        return parsed
+
+    def get_song_tags(self, file_id: str) -> Optional[Dict[str, Any]]:
         """
         获取歌曲的语义标签
 
@@ -26,10 +64,10 @@ class SemanticQueryRepository:
             file_id: 歌曲ID
 
         Returns:
-            包含 mood, energy, genre, region, scene, subculture 的字典，如果歌曲不存在则返回 None
+            包含所有维度标签的字典，如果歌曲不存在则返回 None
         """
         cursor = self.sem_conn.execute("""
-            SELECT mood, energy, genre, region, scene, subculture
+            SELECT mood, energy, genre, style, scene, region, culture, language
             FROM music_semantic
             WHERE file_id = ?
         """, (file_id,))
@@ -37,12 +75,14 @@ class SemanticQueryRepository:
         row = cursor.fetchone()
         if row:
             return {
-                'mood': row[0],
+                'mood': self._parse_tag_value(row[0], 'mood'),
                 'energy': row[1],
-                'genre': row[2],
-                'region': row[3],
-                'scene': row[4],
-                'subculture': row[5]
+                'genre': self._parse_tag_value(row[2], 'genre'),
+                'style': self._parse_tag_value(row[3], 'style'),
+                'scene': self._parse_tag_value(row[4], 'scene'),
+                'region': row[5],
+                'culture': row[6],
+                'language': row[7]
             }
         return None
 
@@ -54,11 +94,11 @@ class SemanticQueryRepository:
             歌曲列表，每首歌包含所有语义标签字段
         """
         cursor = self.sem_conn.execute("""
-            SELECT file_id, title, artist, album, mood, energy, scene,
-                   region, subculture, genre, confidence
+            SELECT file_id, title, artist, album, mood, energy, genre,
+                   style, scene, region, culture, language, confidence
             FROM music_semantic
         """)
-        return [dict(row) for row in cursor.fetchall()]
+        return [self._parse_row(dict(row)) for row in cursor.fetchall()]
 
     def get_song_by_id(self, file_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -71,13 +111,13 @@ class SemanticQueryRepository:
             歌曲信息字典，如果不存在则返回 None
         """
         cursor = self.sem_conn.execute("""
-            SELECT file_id, title, artist, album, mood, energy, scene,
-                   region, subculture, genre, confidence
+            SELECT file_id, title, artist, album, mood, energy, genre,
+                   style, scene, region, culture, language, confidence
             FROM music_semantic
             WHERE file_id = ?
         """, (file_id,))
         row = cursor.fetchone()
-        return dict(row) if row else None
+        return self._parse_row(dict(row)) if row else None
 
     def query_by_mood(self, mood: str, limit: int = 20) -> List[Dict[str, Any]]:
         """
@@ -91,13 +131,14 @@ class SemanticQueryRepository:
             歌曲列表
         """
         cursor = self.sem_conn.execute("""
-            SELECT title, artist, album, mood, energy, genre, region, confidence
+            SELECT file_id, title, artist, album, mood, energy, genre,
+                   style, scene, region, culture, language, confidence
             FROM music_semantic
-            WHERE mood = ?
+            WHERE mood LIKE ?
             ORDER BY confidence DESC
             LIMIT ?
-        """, (mood, limit))
-        return [dict(row) for row in cursor.fetchall()]
+        """, (f'%"{mood}"%', limit))
+        return [self._parse_row(dict(row)) for row in cursor.fetchall()]
 
     def query_by_tags(
         self,
@@ -124,14 +165,14 @@ class SemanticQueryRepository:
         params = []
 
         if mood:
-            conditions.append("mood = ?")
-            params.append(mood)
+            conditions.append("mood LIKE ?")
+            params.append(f'%"{mood}"%')
         if energy:
             conditions.append("energy = ?")
             params.append(energy)
         if genre:
-            conditions.append("genre = ?")
-            params.append(genre)
+            conditions.append("genre LIKE ?")
+            params.append(f'%"{genre}"%')
         if region:
             conditions.append("region = ?")
             params.append(region)
@@ -139,14 +180,15 @@ class SemanticQueryRepository:
         where_clause = " AND ".join(conditions) if conditions else "1=1"
 
         cursor = self.sem_conn.execute(f"""
-            SELECT title, artist, album, mood, energy, genre, region, confidence
+            SELECT file_id, title, artist, album, mood, energy, genre,
+                   style, scene, region, culture, language, confidence
             FROM music_semantic
             WHERE {where_clause}
             ORDER BY RANDOM()
             LIMIT ?
         """, params + [limit])
 
-        return [dict(row) for row in cursor.fetchall()]
+        return [self._parse_row(dict(row)) for row in cursor.fetchall()]
 
     def get_songs_by_ids(self, file_ids: List[str]) -> List[Dict[str, Any]]:
         """
@@ -163,13 +205,13 @@ class SemanticQueryRepository:
 
         placeholders = ','.join('?' * len(file_ids))
         cursor = self.sem_conn.execute(f"""
-            SELECT file_id, title, artist, album, mood, energy, scene,
-                   region, subculture, genre, confidence
+            SELECT file_id, title, artist, album, mood, energy, genre,
+                   style, scene, region, culture, language, confidence
             FROM music_semantic
             WHERE file_id IN ({placeholders})
         """, file_ids)
 
-        return [dict(row) for row in cursor.fetchall()]
+        return [self._parse_row(dict(row)) for row in cursor.fetchall()]
 
     def get_total_count(self) -> int:
         """

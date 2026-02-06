@@ -16,12 +16,14 @@ SECONDS_PER_MINUTE = 60
 
 # 数据库相关常量
 DB_INDEXES = [
-    # music_semantic 表索引
     "CREATE INDEX IF NOT EXISTS idx_music_semantic_mood ON music_semantic(mood)",
     "CREATE INDEX IF NOT EXISTS idx_music_semantic_energy ON music_semantic(energy)",
     "CREATE INDEX IF NOT EXISTS idx_music_semantic_genre ON music_semantic(genre)",
-    "CREATE INDEX IF NOT EXISTS idx_music_semantic_region ON music_semantic(region)",
+    "CREATE INDEX IF NOT EXISTS idx_music_semantic_style ON music_semantic(style)",
     "CREATE INDEX IF NOT EXISTS idx_music_semantic_scene ON music_semantic(scene)",
+    "CREATE INDEX IF NOT EXISTS idx_music_semantic_region ON music_semantic(region)",
+    "CREATE INDEX IF NOT EXISTS idx_music_semantic_culture ON music_semantic(culture)",
+    "CREATE INDEX IF NOT EXISTS idx_music_semantic_language ON music_semantic(language)",
     "CREATE INDEX IF NOT EXISTS idx_music_semantic_confidence ON music_semantic(confidence)",
     "CREATE INDEX IF NOT EXISTS idx_music_semantic_updated_at ON music_semantic(updated_at)",
 ]

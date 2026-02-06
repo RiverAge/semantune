@@ -94,13 +94,52 @@ class ProfileService:
             tag: 标签值
 
         Returns:
-            标签类型 (mood, energy, genre, region)，如果不在任何类型中则返回 None
+            标签类型，如果不在任何类型中则返回 None
         """
         allowed_labels = get_allowed_labels()
         for tag_type, allowed_tags in allowed_labels.items():
             if tag in allowed_tags:
                 return tag_type
         return None
+
+    def _get_array_fields(self) -> Dict[str, int]:
+        """
+        获取数组字段配置及其最大标签数量
+
+        Returns:
+            字典：字段名 -> 最大标签数量
+        """
+        return {
+            'mood': 3,
+            'genre': 2,
+            'style': 3,
+            'scene': 2
+        }
+
+    def _get_array_weight(self, index: int) -> float:
+        """
+        获取数组中某位置标签的权重（顺序加权）
+
+        Args:
+            index: 标签在数组中的位置（从0开始）
+
+        Returns:
+            权重值：第1个1.0，第2个0.7，第3个0.4
+        """
+        weights = [1.0, 0.7, 0.4]
+        return weights[index] if index < len(weights) else 0.4
+
+    def _is_array_field(self, field: str) -> bool:
+        """
+        判断字段是否为数组字段
+
+        Args:
+            field: 字段名
+
+        Returns:
+            是否为数组字段
+        """
+        return field in self._get_array_fields()
 
     def build_user_profile(self, user_id: str) -> Dict[str, Any]:
         """
@@ -153,10 +192,18 @@ class ProfileService:
             # 计算权重
             weight = self._calculate_song_weight(play_data, playlist_count)
 
-            # 累加标签权重
-            for tag_type in ['mood', 'energy', 'genre', 'region']:
+            # 累加标签权重（支持动态维度和数组标签）
+            allowed_labels = get_allowed_labels()
+            for tag_type in allowed_labels.keys():
                 tag_value = tags.get(tag_type)
-                if tag_value and tag_value != 'None':
+                if tag_value is None or (isinstance(tag_value, str) and tag_value == 'None'):
+                    continue
+
+                if self._is_array_field(tag_type) and isinstance(tag_value, list):
+                    for idx, tag in enumerate(tag_value):
+                        if tag:
+                            tag_weights[tag] += weight * self._get_array_weight(idx)
+                elif isinstance(tag_value, str):
                     tag_weights[tag_value] += weight
 
             # 统计信息
@@ -176,13 +223,9 @@ class ProfileService:
         else:
             normalized_weights = {}
 
-        # 6. 按类型分组标签 - 确保所有类型都存在
-        profile = {
-            'mood': {},
-            'energy': {},
-            'genre': {},
-            'region': {}
-        }
+        # 6. 按类型分组标签 - 动态维度
+        allowed_labels = get_allowed_labels()
+        profile = {tag_type: {} for tag_type in allowed_labels.keys()}
 
         for tag, weight in normalized_weights.items():
             tag_type = self._get_tag_type(tag)
