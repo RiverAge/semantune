@@ -1,0 +1,122 @@
+# 标签配置文件
+# Semantune 标签生成系统配置
+
+# 标签白名单
+allowed_labels:
+  mood:
+    - Energetic
+    - Epic
+    - Emotional
+    - Sad
+    - Chill
+    - Dark
+    - Happy
+    - Peaceful
+    - Romantic
+    - Dreamy
+    - Upbeat
+    - Groovy
+  energy:
+    - Low
+    - Medium
+    - High
+  scene:
+    - Workout
+    - Study
+    - Night
+    - Driving
+    - Gaming
+    - Sleep
+    - Morning
+    - None
+  region:
+    - Chinese
+    - Western
+    - Japanese
+    - Korean
+  subculture:
+    - None
+    - Anime
+    - Game
+    - Vocaloid
+    - Idol
+  genre:
+    - Pop
+    - Indie
+    - Rock
+    - Electronic
+    - Hip-Hop
+    - Classical
+    - Folk
+    - J-Rock
+    - Metal
+
+# 场景预设定义
+scene_presets:
+  深夜:
+    mood:
+      - Peaceful
+      - Sad
+      - Dreamy
+      - Chill
+    energy:
+      - Low
+  运动:
+    mood:
+      - Energetic
+      - Epic
+    energy:
+      - High
+  学习:
+    mood:
+      - Peaceful
+      - Chill
+    energy:
+      - Low
+      - Medium
+  开车:
+    mood:
+      - Energetic
+      - Upbeat
+      - Groovy
+    energy:
+      - Medium
+      - High
+  放松:
+    mood:
+      - Peaceful
+      - Dreamy
+      - Chill
+    energy:
+      - Low
+  派对:
+    mood:
+      - Happy
+      - Energetic
+      - Upbeat
+    energy:
+      - High
+  伤心:
+    mood:
+      - Sad
+      - Emotional
+    energy:
+      - Low
+      - Medium
+  励志:
+    mood:
+      - Epic
+      - Energetic
+    energy:
+      - High
+
+# 注意：提示词模板会根据上面的标签白名单自动生成，无需手动配置
+
+# API 调用配置
+api:
+  timeout: 60              # API 请求超时时间（秒）
+  max_tokens: 1024         # API 响应最大 token 数
+  temperature: 0.1         # API 温度参数
+  retry_delay: 1           # 失败重试延迟（秒）
+  max_retries: 3           # 最大重试次数
+  retry_backoff: 2         # 重试退避倍数（每次重试延迟时间乘以这个值）
