@@ -216,7 +216,13 @@ def get_tagging_api_config() -> Dict[str, Any]:
         API 配置字典
     """
     config = _load_yaml_config("tagging_config.yaml")
-    return config.get("api", {})
+    api_config = config.get("api", {})
+    
+    # 设置默认并发数
+    if "max_concurrent" not in api_config:
+        api_config["max_concurrent"] = 5
+        
+    return api_config
 
 
 def update_allowed_labels(labels: Dict[str, List[str]]) -> None:

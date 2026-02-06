@@ -216,3 +216,4 @@ api:
   retry_delay: 1
   max_retries: 3
   retry_backoff: 2
+  max_concurrent: 5

@@ -4,9 +4,11 @@
 
 from typing import Dict, Any, List, Optional
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 
 from config.settings import get_model
+from config.constants import get_tagging_api_config
 from src.repositories.navidrome_repository import NavidromeRepository
 from src.repositories.semantic_repository import SemanticRepository
 from .llm_client import LLMClient
@@ -93,7 +95,7 @@ class TaggingService:
 
     def process_all_songs(self) -> Dict[str, Any]:
         """
-        处理所有未标记的歌曲
+        处理所有未标记的歌曲（支持并发）
 
         Returns:
             处理结果统计
@@ -111,41 +113,53 @@ class TaggingService:
         # 筛选未标记的歌曲
         untagged_songs = [s for s in all_songs if s['id'] not in tagged_ids]
 
+        # 获取并发配置
+        api_config = get_tagging_api_config()
+        max_concurrent = api_config.get("max_concurrent", 5)
+        logger.info(f"开始处理 {len(untagged_songs)} 首未标记歌曲，最大并发数: {max_concurrent}")
+
         processed = 0
         failed = 0
         validation_failed = 0
 
-        for idx, song in enumerate(untagged_songs, 1):
-            try:
-                lyrics = self.nav_repo.extract_lyrics_text(song.get('lyrics'))
-                result = self.generate_tag(
-                    title=song['title'],
-                    artist=song['artist'],
-                    album=song['album'],
-                    lyrics=lyrics
-                )
+        # 使用线程池并发处理歌曲
+        with ThreadPoolExecutor(max_workers=max_concurrent) as executor:
+            # 提交所有任务
+            future_to_song = {}
+            for song in untagged_songs:
+                future = executor.submit(self._process_single_song, song)
+                future_to_song[future] = song
 
-                # 使用带验证的保存方法
-                is_valid, validation_result = self.sem_repo.save_song_tags_with_validation(
-                    file_id=song['id'],
-                    title=song['title'],
-                    artist=song['artist'],
-                    album=song['album'],
-                    tags=result['tags'],
-                    confidence=result['tags'].get('confidence', 0.0),
-                    model=get_model()
-                )
+            # 处理完成的任务
+            for idx, future in enumerate(as_completed(future_to_song), 1):
+                song = future_to_song[future]
+                try:
+                    result = future.result()
+                    if result["status"] == "success":
+                        # 使用带验证的保存方法
+                        is_valid, validation_result = self.sem_repo.save_song_tags_with_validation(
+                            file_id=song['id'],
+                            title=song['title'],
+                            artist=song['artist'],
+                            album=song['album'],
+                            tags=result["data"]['tags'],
+                            confidence=result["data"]['tags'].get('confidence', 0.0),
+                            model=get_model()
+                        )
 
-                if is_valid:
-                    processed += 1
-                    logger.info(f"处理进度 [{idx}/{len(untagged_songs)}]: {song['title']} - {song['artist']} - VALID")
-                else:
-                    validation_failed += 1
-                    invalid_tags_str = json.dumps(validation_result['invalid_tags'], ensure_ascii=False)
-                    logger.warning(f"处理进度 [{idx}/{len(untagged_songs)}]: {song['title']} - {song['artist']} - INVALID - 违规标签: {invalid_tags_str}")
-            except Exception as e:
-                logger.error(f"处理歌曲失败 [{idx}/{len(untagged_songs)}]: {song['title']} - {song['artist']} - {str(e)}", exc_info=True)
-                failed += 1
+                        if is_valid:
+                            processed += 1
+                            logger.info(f"处理进度 [{idx}/{len(untagged_songs)}]: {song['title']} - {song['artist']} - VALID")
+                        else:
+                            validation_failed += 1
+                            invalid_tags_str = json.dumps(validation_result['invalid_tags'], ensure_ascii=False)
+                            logger.warning(f"处理进度 [{idx}/{len(untagged_songs)}]: {song['title']} - {song['artist']} - INVALID - 违规标签: {invalid_tags_str}")
+                    else:
+                        failed += 1
+                        logger.error(f"处理歌曲失败 [{idx}/{len(untagged_songs)}]: {song['title']} - {song['artist']} - {result['error']}")
+                except Exception as e:
+                    failed += 1
+                    logger.error(f"处理歌曲失败 [{idx}/{len(untagged_songs)}]: {song['title']} - {song['artist']} - {str(e)}", exc_info=True)
 
         logger.info(f"处理完成: 总数={total}, 已标记={len(tagged_ids)}, 本次处理={processed}, 验证失败={validation_failed}, 失败={failed}, 剩余={len(untagged_songs) - processed - validation_failed - failed}")
 
@@ -157,6 +171,28 @@ class TaggingService:
             "failed": failed,
             "remaining": len(untagged_songs) - processed - validation_failed - failed
         }
+
+    def _process_single_song(self, song: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        处理单首歌曲（在线程中运行）
+
+        Args:
+            song: 歌曲信息字典
+
+        Returns:
+            处理结果字典
+        """
+        try:
+            lyrics = self.nav_repo.extract_lyrics_text(song.get('lyrics'))
+            result = self.generate_tag(
+                title=song['title'],
+                artist=song['artist'],
+                album=song['album'],
+                lyrics=lyrics
+            )
+            return {"status": "success", "data": result}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
 
     def cleanup_orphans(self) -> int:
         """

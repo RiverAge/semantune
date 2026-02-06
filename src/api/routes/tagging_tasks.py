@@ -46,92 +46,11 @@ def run_tagging_task_sync():
                 logger.info(f"后台任务：已清理 {orphan_count} 个孤儿标签")
                 sys.stderr.flush()
 
-            nav_songs = nav_repo.get_all_songs()
-            logger.info(f"从 Navidrome 获取到 {len(nav_songs)} 首歌曲")
+            # 直接调用处理所有歌曲的方法（已支持并发）
+            result = tagging_service.process_all_songs()
+            
+            logger.info(f"标签生成任务完成: 总数={result['total']}, 已处理={result['processed']}, 验证失败={result['validation_failed']}, 失败={result['failed']}")
             sys.stderr.flush()
-
-            processed_ids = set()
-            cursor = sem_conn.execute("SELECT file_id FROM music_semantic")
-            for row in cursor.fetchall():
-                processed_ids.add(row[0])
-
-            todo_songs = [s for s in nav_songs if s['id'] not in processed_ids]
-
-            update_tagging_progress(total=len(todo_songs))
-            logger.info(f"待处理歌曲数: {len(todo_songs)}")
-            sys.stderr.flush()
-
-            if len(todo_songs) == 0:
-                update_tagging_progress(status="completed")
-                logger.info("没有需要处理的歌曲")
-                sys.stderr.flush()
-                return
-
-        with dbs_context() as (nav_conn, sem_conn):
-            tagging_service = ServiceFactory.create_tagging_service(nav_conn, sem_conn)
-
-            nav_repo = NavidromeRepository(nav_conn)
-            sem_repo = SemanticRepository(sem_conn)
-
-            all_songs = nav_repo.get_all_songs()
-
-            tagged_ids = set()
-            cursor = sem_conn.execute("SELECT file_id FROM music_semantic")
-            for row in cursor.fetchall():
-                tagged_ids.add(row[0])
-
-            untagged_songs = [s for s in all_songs if s['id'] not in tagged_ids]
-
-            processed = 0
-            failed = 0
-
-            from .tagging_sse import get_tagging_progress
-
-            for idx, song in enumerate(untagged_songs, 1):
-                progress = get_tagging_progress()
-
-                if progress["status"] == "stopped":
-                    logger.info("标签生成任务已被中止")
-                    update_tagging_progress(status="stopped")
-                    sys.stderr.flush()
-                    return
-
-                try:
-                    logger.info(f"[{idx}/{len(untagged_songs)}] 正在处理: {song['title']} - {song['artist']}")
-                    sys.stderr.flush()
-
-                    result = tagging_service.generate_tag(
-                        title=song['title'],
-                        artist=song['artist'],
-                        album=song['album']
-                    )
-
-                    sem_repo.save_song_tags(
-                        file_id=song['id'],
-                        title=song['title'],
-                        artist=song['artist'],
-                        album=song['album'],
-                        tags=result['tags'],
-                        confidence=result['tags'].get('confidence', 0.0),
-                        model=""
-                    )
-                    processed += 1
-                    update_tagging_progress(processed=processed)
-                    logger.info(f"[{idx}/{len(untagged_songs)}] ✓ 处理完成: {song['title']} - {song['artist']}")
-                    sys.stderr.flush()
-                except Exception as e:
-                    logger.error(f"[{idx}/{len(untagged_songs)}] ✗ 处理失败: {song['title']} - {song['artist']} - {str(e)}", exc_info=True)
-                    sys.stderr.flush()
-                    failed += 1
-
-            logger.info(f"处理完成: 总数={len(untagged_songs)}, 已标记={processed}, 失败={failed}")
-            sys.stderr.flush()
-
-        update_tagging_progress(status="completed")
-        logger.info("=" * 60)
-        logger.info("标签生成任务完成")
-        logger.info("=" * 60)
-        sys.stderr.flush()
 
     except Exception as e:
         logger.error("=" * 60)
