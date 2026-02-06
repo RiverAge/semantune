@@ -105,7 +105,7 @@ prompt_template: |
   3. 严格遵守每个字段的数量限制。
   4. 如果最合适的语义标签不在白名单中，必须用最接近的合法标签替换，而不是输出非法标签。
   5. 如果不确定，请选择更少标签而不是猜测。
-  6. 如果歌曲有人声或歌词，不得将 language 标为 "Instrumental"。
+  6. language 判断原则：除非 100% 确定是纯音乐（仅乐器演奏、无人声、无唱词），否则不得标记为 "Instrumental"。
   7. genre 表示一级商业流派；style 表示子风格、质感或制作风格。若有冲突，请保持 genre 更宽泛。
   8. 在输出前，请逐字段检查是否违反以上规则，并在发现问题时自动修正。
   9. 只输出 JSON，不要任何解释文字。
@@ -121,6 +121,37 @@ prompt_template: |
   如果原始语义属于上述标签，必须按以下方式表达：
   - Epic → 使用 energy=High + style=Cinematic/Orchestral + mood=Hopeful/Dark/Mysterious
   - J-Pop/K-Pop/C-Pop → 使用 region + genre=Pop + 可选 style=City Pop
+
+  【高优先级纠错规则 - 必须优先执行】
+
+  1. 判断 language 是否为 Instrumental 时，严格遵循以下标准：
+     - 仅有纯音乐（无任何人声、哼唱、Vocaloid）才能标记为 Instrumental
+     - 包含歌词或人声的歌曲，language 绝对不得为 Instrumental
+     - 如果无法确定是否有人声，默认假设有人声（特别是流行/动漫/游戏音乐）
+
+  2. 特殊类型歌曲的 language 判断规则：
+     - Vocaloid 作品（初音ミク、巡音ルカ、GUMI 等）→ language 必须为实际语言，绝不能是 Instrumental
+     - 所有 OST（动漫/游戏/电影/电视剧）→ 默认为实际语言，除非明确标注为背景音乐(BGM)/纯音乐
+     - 日本/韩国的流行/动漫/游戏音乐 → 强烈偏向有人声，language 应为 Japanese/Korean
+     - 包含人声的电子音乐（如 Daft Punk）→ language 为实际语言，不是 Instrumental
+     - 任何包含演唱、说唱、合声的歌曲 → language 不能是 Instrumental
+
+  3. OST / Anime / Game 类型的 genre/classification 与 language 是独立维度：
+     - culture=Anime/Game/Film/TV 不能推导出 language=Instrumental
+     - 是否标记为 Instrumental 仅取决于：是否包含任何形式的人声
+     - 大多数动漫/游戏 OP/ED/插入歌都有歌词，language 必须标注实际语言
+     - 只有明确标注为 BGM/Soundtrack/Background Music 的纯音乐才能标记为 Instrumental
+
+  4. 出现冲突时的优先级（从高到低）：
+     - 第一优先级：language 正确性（有人声绝不能标 Instrumental）
+     - 第二优先级：genre/style 合理性
+     - 第三优先级：mood 精细度
+
+  5. 关键判断原则：
+     - 如果歌曲标题包含以下词汇，倾向于有人声：歌、曲、主题歌、主题曲、OP、ED、插入歌、FLAGS
+     - 如果是艺术家的知名歌曲（如 Daft Punk 的 Get Lucky），假设有人声
+     - 只有明确知道是纯音乐的情况下才标记为 Instrumental
+     - culture 为 Game/Anime/Film/TV 的歌曲，除非标题明确写 BGM/Background/Piano Version，否则假设有人声
 
   【歌曲信息】
   标题: {title}
