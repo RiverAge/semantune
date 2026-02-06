@@ -94,7 +94,7 @@ export default function TaggingConfig({
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <h4 className="text-sm font-medium text-blue-800 mb-2">标签白名单说明</h4>
         <p className="text-sm text-blue-700">
-          标签白名单（mood、energy、scene、region、subculture、genre）现在通过后台配置文件 <code className="bg-blue-100 px-1 rounded">config/tagging_config.yaml</code> 进行管理。
+          标签白名单（mood、energy、genre、style、scene、region、culture、language）现在通过后台配置文件 <code className="bg-blue-100 px-1 rounded">config/tagging_config.yaml</code> 进行管理。
           请直接编辑该配置文件来修改标签列表。
         </p>
       </div>
