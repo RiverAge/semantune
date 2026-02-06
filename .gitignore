@@ -89,4 +89,17 @@ test_*.json
 test_*.md
 test_*.txt
 test_validation.py
+test_instrumental.py
+
+# Result and report files (don't commit)
+*_summary.md
+*_report.md
+*_result.md
+*_detailed_*.md
+prompt_*.txt
+prompt_*.md
+*_optimization*.txt
+*_optimization*.md
+*_example.txt
+*_and_result.txt
 
