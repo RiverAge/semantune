@@ -1,0 +1,902 @@
+"""
+标签生成接口路由端点
+"""
+import logging
+import os
+import json
+import time
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
+from fastapi.responses import StreamingResponse
+
+from config.settings import get_model
+from src.core.database import nav_db_context, sem_db_context, dbs_context
+from src.core.schema import init_semantic_db
+from src.core.response import ApiResponse
+from src.core.exceptions import SemantuneException
+from src.repositories.navidrome_repository import NavidromeRepository
+from src.repositories.semantic_repository import SemanticRepository
+from src.services.service_factory import ServiceFactory
+from src.utils.logger import setup_logger
+from ..tagging_sse import (
+    event_generator,
+    get_tagging_progress,
+    update_tagging_progress,
+    broadcast_progress
+)
+from ..tagging_tasks import run_tagging_task, process_batch_tags
+from .models import TagRequest, TagProgressResponse, BatchTagRequest
+
+# 从环境变量读取日志级别，默认为 INFO
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+log_level = getattr(logging, LOG_LEVEL, logging.INFO)
+
+logger = setup_logger("api", level=log_level, console_level=log_level)
+
+router = APIRouter()
+
+
+@router.post("/generate")
+async def generate_tag(request: TagRequest):
+    """
+    为单首歌曲生成语义标签
+
+    - **title**: 歌曲标题
+    - **artist**: 歌手名称
+    - **album**: 专辑名称（可选）
+    """
+    try:
+        with dbs_context() as (nav_conn, sem_conn):
+            tagging_service = ServiceFactory.create_tagging_service(nav_conn, sem_conn)
+            result = tagging_service.generate_tag(request.title, request.artist, request.album)
+
+            logger.debug(f"为 {request.artist} - {request.title} 生成标签成功")
+
+            return ApiResponse.success_response(data=result)
+
+    except SemantuneException as e:
+        raise
+    except Exception as e:
+        logger.error(f"标签生成失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/batch")
+async def batch_generate_tags(request: BatchTagRequest, background_tasks: BackgroundTasks):
+    """
+    批量生成语义标签（后台任务）
+
+    - **songs**: 歌曲列表，每首歌曲包含 title, artist, album
+    """
+    try:
+        # 初始化进度
+        update_tagging_progress(total=len(request.songs), processed=0, status="processing")
+
+        # 添加后台任务
+        background_tasks.add_task(process_batch_tags, request.songs)
+
+        logger.debug(f"开始批量生成标签，共 {len(request.songs)} 首歌曲")
+
+        return ApiResponse.success_response(
+            data={
+                "message": "批量标签生成任务已启动",
+                "total": len(request.songs),
+                "status": "processing"
+            }
+        )
+
+    except SemantuneException as e:
+        raise
+    except Exception as e:
+        logger.error(f"批量标签生成失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/progress", response_model=TagProgressResponse)
+async def get_tagging_progress_endpoint():
+    """
+    获取批量标签生成进度
+    """
+    progress = get_tagging_progress()
+    return TagProgressResponse(
+        total=progress["total"],
+        processed=progress["processed"],
+        remaining=progress["remaining"],
+        status=progress["status"]
+    )
+
+
+@router.post("/sync")
+async def sync_tags_to_db():
+    """
+    同步标签到数据库（从 Navidrome 读取歌曲并生成标签）
+    """
+    try:
+        # 初始化语义数据库
+        with sem_db_context() as sem_conn:
+            init_semantic_db(sem_conn)
+
+        # 连接数据库
+        with dbs_context() as (nav_conn, sem_conn):
+            nav_repo = NavidromeRepository(nav_conn)
+            sem_repo = SemanticRepository(sem_conn)
+
+            # 获取所有歌曲
+            songs = nav_repo.get_all_songs()
+
+            # 获取已处理的歌曲ID
+            tagged_ids = set()
+            cursor = sem_conn.execute("SELECT file_id FROM music_semantic")
+            for row in cursor.fetchall():
+                tagged_ids.add(row[0])
+
+            # 筛选未处理的歌曲
+            new_songs = [s for s in songs if s['id'] not in tagged_ids]
+
+        logger.debug(f"找到 {len(new_songs)} 首新歌曲需要生成标签")
+
+        return ApiResponse.success_response(
+            data={
+                "message": "同步任务准备完成",
+                "total_songs": len(songs),
+                "processed_songs": len(tagged_ids),
+                "new_songs": len(new_songs)
+            }
+        )
+
+    except SemantuneException as e:
+        raise
+    except Exception as e:
+        logger.error(f"同步标签失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/cleanup")
+async def cleanup_tags():
+    """
+    清理孤儿标签（删除在 Semantune 数据库中存在但在 Navidrome 中已删除的歌曲）
+    """
+    try:
+        with dbs_context() as (nav_conn, sem_conn):
+            tagging_service = ServiceFactory.create_tagging_service(nav_conn, sem_conn)
+            count = tagging_service.cleanup_orphans()
+
+            logger.info(f"清理了 {count} 个孤儿标签")
+
+            return ApiResponse.success_response(
+                data={
+                    "count": count,
+                    "message": f"成功清理了 {count} 个孤儿标签"
+                }
+            )
+
+    except Exception as e:
+        logger.error(f"清理标签失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/status")
+async def get_tagging_status():
+    """
+    获取标签生成状态（前端专用）
+    """
+    try:
+        with dbs_context() as (nav_conn, sem_conn):
+            # 初始化语义数据库
+            init_semantic_db(sem_conn)
+
+            nav_repo = NavidromeRepository(nav_conn)
+            sem_repo = SemanticRepository(sem_conn)
+
+            # 获取 Navidrome 中的所有歌曲
+            nav_songs = nav_repo.get_all_songs()
+            total = len(nav_songs)
+            nav_ids = set(song['id'] for song in nav_songs)
+
+            # 获取标签数据库中的所有歌曲
+            sem_songs = sem_repo.get_all_songs()
+            sem_ids = set(song['file_id'] for song in sem_songs)
+
+            # 实际已标记的歌曲（既在Navidrome存在又在标签数据库存在）
+            tagged = len(nav_ids & sem_ids)
+
+            # 待处理的歌曲（在Navidrome存在但不在标签数据库）
+            pending = len(nav_ids - sem_ids)
+
+            # 孤儿标签（在标签数据库存在但不在Navidrome存在）
+            orphan_ids = list(sem_ids - nav_ids)
+            orphans = len(orphan_ids)
+            if orphans > 0:
+                logger.info(f"发现 {orphans} 个孤儿标签，自动清理...")
+                sem_repo.delete_songs_by_ids(orphan_ids)
+                logger.info(f"成功清理 {orphans} 个孤儿标签")
+
+            # 获取失败的歌曲（这里简化处理，实际可能需要更复杂的逻辑）
+            failed = 0
+
+            # 计算进度
+            progress = (tagged / total * 100) if total > 0 else 0
+
+        progress_data = get_tagging_progress()
+
+        return ApiResponse.success_response(
+            data={
+                "total": total,
+                "processed": tagged,
+                "pending": pending,
+                "failed": failed,
+                "progress": progress,
+                "task_status": progress_data["status"]
+            }
+        )
+
+    except SemantuneException as e:
+        raise
+    except Exception as e:
+        logger.error(f"获取标签生成状态失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/preview")
+async def preview_tagging(
+    limit: int = Query(default=5, ge=1, le=20, description="预览数量，范围1-20")
+):
+    """
+    预览标签生成（前端专用）
+    """
+    try:
+        with dbs_context() as (nav_conn, sem_conn):
+            nav_repo = NavidromeRepository(nav_conn)
+            songs = nav_repo.get_all_songs()
+
+            # 为每首歌生成标签
+            previews = []
+            for song in songs[:limit]:
+                try:
+                    tagging_service = ServiceFactory.create_tagging_service(nav_conn, sem_conn)
+                    result = tagging_service.generate_tag(
+                        song['title'],
+                        song['artist'],
+                        song.get('album', '')
+                    )
+                    previews.append({
+                        "title": song['title'],
+                        "artist": song['artist'],
+                        "tags": result['tags']
+                    })
+                except Exception as e:
+                    logger.error(f"生成标签失败: {song['title']} - {song['artist']}: {e}")
+
+        return ApiResponse.success_response(data=previews)
+
+    except SemantuneException as e:
+        raise
+    except Exception as e:
+        logger.error(f"预览标签生成失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/stream")
+async def stream_progress():
+    """
+    SSE 端点：实时推送标签生成进度
+    """
+    logger.info("SSE stream 端点被调用")
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+            "Transfer-Encoding": "chunked"
+        }
+    )
+
+
+@router.post("/start")
+async def start_tagging(background_tasks: BackgroundTasks):
+    """
+    开始标签生成（前端专用）
+    """
+    try:
+        # 检查是否已经在运行
+        progress = get_tagging_progress()
+        if progress["status"] == "processing":
+            return ApiResponse.error_response(
+                message="标签生成任务正在运行中",
+                error_type="TaskRunning"
+            )
+
+        # 初始化进度
+        update_tagging_progress(total=0, processed=0, status="processing")
+
+        # 广播初始状态
+        await broadcast_progress()
+
+        # 添加后台任务
+        background_tasks.add_task(run_tagging_task)
+
+        logger.debug("标签生成任务已启动")
+
+        return ApiResponse.success_response(message="标签生成任务已启动")
+
+    except SemantuneException as e:
+        raise
+    except Exception as e:
+        logger.error(f"启动标签生成失败: {e}")
+        update_tagging_progress(status="failed")
+        await broadcast_progress()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/stop")
+async def stop_tagging():
+    """
+    中止标签生成任务
+    """
+    try:
+        progress = get_tagging_progress()
+        if progress["status"] != "processing":
+            return ApiResponse.error_response(
+                message="没有正在运行的任务",
+                error_type="NoRunningTask"
+            )
+
+        # 设置状态为已中止
+        update_tagging_progress(status="stopped")
+        await broadcast_progress()
+
+        logger.debug("标签生成任务已中止")
+
+        return ApiResponse.success_response(message="标签生成任务已中止")
+
+    except SemantuneException as e:
+        raise
+    except Exception as e:
+        logger.error(f"中止标签生成失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/history")
+async def get_tagging_history(limit: int = 20, offset: int = 0):
+    """
+    获取标签生成历史记录
+
+    - **limit**: 每页数量，默认 20
+    - **offset**: 偏移量，默认 0
+    """
+    try:
+        with sem_db_context() as sem_conn:
+            # 获取历史记录
+            cursor = sem_conn.execute("""
+                SELECT file_id, title, artist, album, mood, energy, genre,
+                       style, scene, region, culture, language, confidence, updated_at
+                FROM music_semantic
+                ORDER BY updated_at DESC
+                LIMIT ? OFFSET ?
+            """, (limit, offset))
+
+            rows = cursor.fetchall()
+
+            # 获取总数
+            total = sem_conn.execute("SELECT COUNT(*) FROM music_semantic").fetchone()[0]
+
+            history = []
+            for row in rows:
+                history.append({
+                    "file_id": row[0],
+                    "title": row[1],
+                    "artist": row[2],
+                    "album": row[3],
+                    "tags": {
+                        "mood": row[4],
+                        "energy": row[5],
+                        "genre": row[6],
+                        "style": row[7],
+                        "scene": row[8],
+                        "region": row[9],
+                        "culture": row[10],
+                        "language": row[11],
+                        "confidence": row[12]
+                    },
+                    "updated_at": row[13]
+                })
+
+        return ApiResponse.success_response(
+            data={
+                "items": history,
+                "total": total,
+                "limit": limit,
+                "offset": offset
+            }
+        )
+
+    except SemantuneException as e:
+        raise
+    except Exception as e:
+        logger.error(f"获取历史记录失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/export")
+async def export_history_md():
+    """
+    导出标签生成历史记录为 Markdown 格式
+    """
+    try:
+        with sem_db_context() as sem_conn:
+            cursor = sem_conn.execute("""
+                SELECT title, artist, album, mood, energy, genre,
+                       style, scene, region, culture, language, confidence, updated_at
+                FROM music_semantic
+                ORDER BY updated_at DESC
+            """)
+
+            rows = cursor.fetchall()
+
+            if not rows:
+                content = "# 标签生成历史记录\n\n暂无记录"
+                return StreamingResponse(
+                    iter([content]),
+                    media_type="text/markdown",
+                    headers={
+                        "Content-Disposition": "attachment; filename=tagging_history.md"
+                    }
+                )
+
+            markdown_lines = [
+                "# 标签生成历史记录\n\n",
+                f"共 {len(rows)} 条记录\n\n",
+                "| 歌曲名 | 艺术家 | 专辑 | 心情 | 能量 | 流派 | 风格 | 场景 | 地区 | 文化 | 语言 | 置信度 | 更新时间 |\n",
+                "|--------|--------|------|------|------|------|------|------|------|------|------|--------|----------|\n"
+            ]
+
+            for row in rows:
+                markdown_lines.append(
+                    f"| {row[0]} | {row[1]} | {row[2]} | {row[3]} | {row[4]} | {row[5]} | {row[6]} | {row[7]} | {row[8]} | {row[9]} | {row[10]} | {row[11]:.2f} | {row[12]} |\n"
+                )
+
+            content = "".join(markdown_lines)
+
+            return StreamingResponse(
+                iter([content]),
+                media_type="text/markdown",
+                headers={
+                    "Content-Disposition": "attachment; filename=tagging_history.md"
+                }
+            )
+
+    except Exception as e:
+        logger.error(f"导出历史记录失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ==================== 标签验证相关端点 ====================
+
+@router.get("/validation/invalid")
+def get_invalid_tags(
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0)
+):
+    """获取验证失败的歌曲列表
+
+    Args:
+        limit: 返回数量，默认50，最大200
+        offset: 偏移量，默认0
+
+    Returns:
+        验证失败的歌曲列表
+    """
+    try:
+        with sem_db_context() as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT file_id, title, artist, album,
+                       mood, energy, genre, style, scene, region, culture, language,
+                       confidence, model, updated_at,
+                       invalid_tags
+                FROM music_semantic
+                WHERE validation_status = 'invalid'
+                ORDER BY updated_at DESC
+                LIMIT ? OFFSET ?
+            """, (limit, offset))
+
+            results = []
+            for row in cursor.fetchall():
+                results.append({
+                    "file_id": row[0],
+                    "title": row[1],
+                    "artist": row[2],
+                    "album": row[3],
+                    "mood": json.loads(row[4]) if row[4] else None,
+                    "energy": row[5],
+                    "genre": json.loads(row[6]) if row[6] else None,
+                    "style": json.loads(row[7]) if row[7] else None,
+                    "scene": json.loads(row[8]) if row[8] else None,
+                    "region": row[9],
+                    "culture": row[10],
+                    "language": row[11],
+                    "confidence": row[12],
+                    "model": row[13],
+                    "updated_at": row[14],
+                    "invalid_tags": json.loads(row[15]) if row[15] else None
+                })
+
+        return ApiResponse.success(data={
+            "total": len(results),
+            "limit": limit,
+            "offset": offset,
+            "data": results
+        })
+
+    except Exception as e:
+        logger.error(f"获取验证失败记录失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/validation/stats")
+def get_validation_stats():
+    """获取验证统计信息
+
+    Returns:
+        验证统计信息
+    """
+    try:
+        with sem_db_context() as conn:
+            cursor = conn.cursor()
+
+            # 总数统计
+            cursor.execute("SELECT COUNT(*) FROM music_semantic")
+            total = cursor.fetchone()[0]
+
+            # 有效统计
+            cursor.execute("SELECT COUNT(*) FROM music_semantic WHERE validation_status = 'valid'")
+            valid = cursor.fetchone()[0]
+
+            # 无效统计
+            cursor.execute("SELECT COUNT(*) FROM music_semantic WHERE validation_status = 'invalid'")
+            invalid = cursor.fetchone()[0]
+
+            # 按维度统计违规标签
+            invalid_by_dimension = {"mood": 0, "energy": 0, "genre": 0, "style": 0, "scene": 0, "region": 0, "culture": 0, "language": 0}
+
+            cursor.execute("""
+                SELECT invalid_tags
+                FROM music_semantic
+                WHERE validation_status = 'invalid'
+            """)
+
+            for row in cursor.fetchall():
+                try:
+                    invalid_dict = json.loads(row[0]) if row[0] else {}
+                    for dim, tags in invalid_dict.items():
+                        if dim in invalid_by_dimension:
+                            invalid_by_dimension[dim] += len(tags)
+                except:
+                    pass
+
+        return ApiResponse.success(data={
+            "total": total,
+            "valid": valid,
+            "invalid": invalid,
+            "valid_rate": round(valid / total * 100, 2) if total > 0 else 0,
+            "invalid_by_dimension": invalid_by_dimension
+        })
+
+    except Exception as e:
+        logger.error(f"获取验证统计失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/validation/revalidate/{file_id}")
+def revalidate_song(file_id: str):
+    """重新验证单首歌曲的标签
+
+    Args:
+        file_id: 歌曲ID
+
+    Returns:
+        重新验证结果
+    """
+    try:
+        with dbs_context() as (nav_conn, sem_conn):
+            nav_repo = NavidromeRepository(nav_conn)
+            sem_repo = SemanticRepository(sem_conn)
+            tagging_service = ServiceFactory.create_tagging_service(nav_conn, sem_conn)
+
+            # 获取歌曲信息
+            songs = nav_repo.search_by_id(file_id)
+            if not songs:
+                raise HTTPException(status_code=404, detail="Song not found")
+
+            song = songs[0]
+
+            # 重新生成标签
+            lyrics = nav_repo.extract_lyrics_text(song.get('lyrics'))
+            result = tagging_service.generate_tag(
+                title=song['title'],
+                artist=song['artist'],
+                album=song['album'],
+                lyrics=lyrics
+            )
+
+            # 保存并验证
+            is_valid, validation_result = sem_repo.save_song_tags_with_validation(
+                file_id=file_id,
+                title=song['title'],
+                artist=song['artist'],
+                album=song['album'],
+                tags=result['tags'],
+                confidence=result['tags'].get('confidence', 0.0),
+                model=get_model()
+            )
+
+            return ApiResponse.success(data={
+                "success": True,
+                "is_valid": is_valid,
+                "validation_result": validation_result,
+                "tags": result['tags']
+            })
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"重新验证歌曲失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/validation/revalidate-all-invalid")
+def revalidate_all_invalid():
+    """重新验证所有无效标签的歌曲
+
+    注意: 这是一个耗时操作，建议在后台任务中使用
+
+    Returns:
+        重新验证任务信息
+    """
+    try:
+        with sem_db_context() as conn:
+            cursor = conn.cursor()
+
+            # 获取所有无效歌曲
+            cursor.execute("""
+                SELECT file_id, title, artist
+                FROM music_semantic
+                WHERE validation_status = 'invalid'
+            """)
+
+            invalid_songs = cursor.fetchall()
+
+        if not invalid_songs:
+            return ApiResponse.success(data={
+                "message": "没有需要重新验证的歌曲",
+                "count": 0
+            })
+
+        # 标记任务开始
+        task_id = f"revalidate_{int(time.time())}"
+        update_tagging_progress(total=len(invalid_songs), processed=0, status="开始重新验证")
+
+        # 在后台任务中处理
+        async def process_revalidation():
+            success_count = 0
+            for idx, (file_id, title, artist) in enumerate(invalid_songs, 1):
+                try:
+                    with dbs_context() as (nav_conn, sem_conn):
+                        nav_repo = NavidromeRepository(nav_conn)
+                        sem_repo = SemanticRepository(sem_conn)
+                        tagging_service = ServiceFactory.create_tagging_service(nav_conn, sem_conn)
+
+                        songs = nav_repo.search_by_id(file_id)
+                        if songs:
+                            song = songs[0]
+                            lyrics = nav_repo.extract_lyrics_text(song.get('lyrics'))
+                            result = tagging_service.generate_tag(
+                                title=song['title'],
+                                artist=song['artist'],
+                                album=song['album'],
+                                lyrics=lyrics
+                            )
+
+                            is_valid, validation_result = sem_repo.save_song_tags_with_validation(
+                                file_id=file_id,
+                                title=song['title'],
+                                artist=song['artist'],
+                                album=song['album'],
+                                tags=result['tags'],
+                                confidence=result['tags'].get('confidence', 0.0),
+                                model=get_model()
+                            )
+
+                            if is_valid:
+                                success_count += 1
+
+                        update_tagging_progress(total=len(invalid_songs), processed=idx, status=f"正在验证 {title} - {artist}")
+                except Exception as e:
+                    logger.error(f"重新验证任务出错: {e}")
+
+            update_tagging_progress(total=len(invalid_songs), processed=len(invalid_songs), status=f"重新验证完成，成功 {success_count}/{len(invalid_songs)}")
+
+        return ApiResponse.success(data={
+            "message": "开始重新验证",
+            "count": len(invalid_songs),
+            "task_id": task_id
+        })
+
+    except Exception as e:
+        return ApiResponse.error(message=str(e))
+
+
+# ==================== 标签验证相关端点 ====================
+
+@router.get("/validation/invalid")
+def get_invalid_tags(
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0)
+):
+    """获取验证失败的歌曲列表
+
+    Args:
+        limit: 返回数量，默认50，最大200
+        offset: 偏移量，默认0
+
+    Returns:
+        验证失败的歌曲列表
+    """
+    try:
+        with sem_db_context() as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT file_id, title, artist, album,
+                       mood, energy, genre, style, scene, region, culture, language,
+                       confidence, model, updated_at,
+                       invalid_tags
+                FROM music_semantic
+                WHERE validation_status = 'invalid'
+                ORDER BY updated_at DESC
+                LIMIT ? OFFSET ?
+            """, (limit, offset))
+
+            results = []
+            for row in cursor.fetchall():
+                results.append({
+                    "file_id": row[0],
+                    "title": row[1],
+                    "artist": row[2],
+                    "album": row[3],
+                    "mood": json.loads(row[4]) if row[4] else None,
+                    "energy": row[5],
+                    "genre": json.loads(row[6]) if row[6] else None,
+                    "style": json.loads(row[7]) if row[7] else None,
+                    "scene": json.loads(row[8]) if row[8] else None,
+                    "region": row[9],
+                    "culture": row[10],
+                    "language": row[11],
+                    "confidence": row[12],
+                    "model": row[13],
+                    "updated_at": row[14],
+                    "invalid_tags": json.loads(row[15]) if row[15] else None
+                })
+
+        return ApiResponse.success(data={
+            "total": len(results),
+            "limit": limit,
+            "offset": offset,
+            "data": results
+        })
+
+    except Exception as e:
+        logger.error(f"获取验证失败记录失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/validation/stats")
+def get_validation_stats():
+    """获取验证统计信息
+
+    Returns:
+        验证统计信息
+    """
+    try:
+        with sem_db_context() as conn:
+            cursor = conn.cursor()
+
+            # 总数统计
+            cursor.execute("SELECT COUNT(*) FROM music_semantic")
+            total = cursor.fetchone()[0]
+
+            # 有效统计
+            cursor.execute("SELECT COUNT(*) FROM music_semantic WHERE validation_status = 'valid'")
+            valid = cursor.fetchone()[0]
+
+            # 无效统计
+            cursor.execute("SELECT COUNT(*) FROM music_semantic WHERE validation_status = 'invalid'")
+            invalid = cursor.fetchone()[0]
+
+            # 按维度统计违规标签
+            invalid_by_dimension = {"mood": 0, "energy": 0, "genre": 0, "style": 0, "scene": 0, "region": 0, "culture": 0, "language": 0}
+
+            cursor.execute("""
+                SELECT invalid_tags
+                FROM music_semantic
+                WHERE validation_status = 'invalid'
+            """)
+
+            for row in cursor.fetchall():
+                try:
+                    invalid_dict = json.loads(row[0]) if row[0] else {}
+                    for dim, tags in invalid_dict.items():
+                        if dim in invalid_by_dimension:
+                            invalid_by_dimension[dim] += len(tags)
+                except:
+                    pass
+
+        return ApiResponse.success(data={
+            "total": total,
+            "valid": valid,
+            "invalid": invalid,
+            "valid_rate": round(valid / total * 100, 2) if total > 0 else 0,
+            "invalid_by_dimension": invalid_by_dimension
+        })
+
+    except Exception as e:
+        logger.error(f"获取验证统计失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/validation/revalidate/{file_id}")
+def revalidate_song(file_id: str):
+    """重新验证单首歌曲的标签
+
+    Args:
+        file_id: 歌曲ID
+
+    Returns:
+        重新验证结果
+    """
+    try:
+        with dbs_context() as (nav_conn, sem_conn):
+            nav_repo = NavidromeRepository(nav_conn)
+            sem_repo = SemanticRepository(sem_conn)
+            tagging_service = ServiceFactory.create_tagging_service(nav_conn, sem_conn)
+
+            # 获取歌曲信息
+            songs = nav_repo.search_by_id(file_id)
+            if not songs:
+                raise HTTPException(status_code=404, detail="Song not found")
+
+            song = songs[0]
+
+            # 重新生成标签
+            lyrics = nav_repo.extract_lyrics_text(song.get('lyrics'))
+            result = tagging_service.generate_tag(
+                title=song['title'],
+                artist=song['artist'],
+                album=song['album'],
+                lyrics=lyrics
+            )
+
+            # 保存并验证
+            is_valid, validation_result = sem_repo.save_song_tags_with_validation(
+                file_id=file_id,
+                title=song['title'],
+                artist=song['artist'],
+                album=song['album'],
+                tags=result['tags'],
+                confidence=result['tags'].get('confidence', 0.0),
+                model=get_model()
+            )
+
+            return ApiResponse.success(data={
+                "success": True,
+                "is_valid": is_valid,
+                "validation_result": validation_result,
+                "tags": result['tags']
+            })
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"重新验证歌曲失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

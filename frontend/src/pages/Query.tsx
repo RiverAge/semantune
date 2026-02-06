@@ -139,7 +139,7 @@ export default function Query() {
                   className="input"
                 >
                   <option value="">全部</option>
-                  {tagOptions.styles.map((style) => (
+                  {tagOptions?.styles?.map((style) => (
                     <option key={style} value={style}>{style}</option>
                   ))}
                 </select>
@@ -154,7 +154,7 @@ export default function Query() {
                   className="input"
                 >
                   <option value="">全部</option>
-                  {tagOptions.scenes.map((scene) => (
+                  {tagOptions?.scenes?.map((scene) => (
                     <option key={scene} value={scene}>{scene}</option>
                   ))}
                 </select>
@@ -169,7 +169,7 @@ export default function Query() {
                   className="input"
                 >
                   <option value="">全部</option>
-                  {tagOptions.regions.map((region) => (
+                  {tagOptions?.regions?.map((region) => (
                     <option key={region} value={region}>{region}</option>
                   ))}
                 </select>
@@ -184,7 +184,7 @@ export default function Query() {
                   className="input"
                 >
                   <option value="">全部</option>
-                  {tagOptions.cultures.map((culture) => (
+                  {tagOptions?.cultures?.map((culture) => (
                     <option key={culture} value={culture}>{culture}</option>
                   ))}
                 </select>
@@ -199,7 +199,7 @@ export default function Query() {
                   className="input"
                 >
                   <option value="">全部</option>
-                  {tagOptions.languages.map((language) => (
+                  {tagOptions?.languages?.map((language) => (
                     <option key={language} value={language}>{language}</option>
                   ))}
                 </select>

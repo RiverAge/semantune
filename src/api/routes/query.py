@@ -220,7 +220,11 @@ async def get_query_options():
                     "moods": query_service.get_available_moods(),
                     "energies": query_service.get_available_energies(),
                     "genres": query_service.get_available_genres(),
-                    "regions": query_service.get_available_regions()
+                    "styles": query_service.get_available_styles(),
+                    "scenes": query_service.get_available_scenes(),
+                    "regions": query_service.get_available_regions(),
+                    "cultures": query_service.get_available_cultures(),
+                    "languages": query_service.get_available_languages()
                 }
             }
 

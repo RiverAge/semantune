@@ -136,3 +136,33 @@ class QueryService:
         """
         allowed_labels = get_allowed_labels()
         return list(allowed_labels.get('region', set()))
+        
+    def get_available_styles(self) -> List[str]:
+        """
+        获取可用的风格标签列表
+
+        Returns:
+            风格标签列表
+        """
+        allowed_labels = get_allowed_labels()
+        return list(allowed_labels.get('style', set()))
+        
+    def get_available_cultures(self) -> List[str]:
+        """
+        获取可用的文化标签列表
+
+        Returns:
+            文化标签列表
+        """
+        allowed_labels = get_allowed_labels()
+        return list(allowed_labels.get('culture', set()))
+        
+    def get_available_languages(self) -> List[str]:
+        """
+        获取可用的语言标签列表
+
+        Returns:
+            语言标签列表
+        """
+        allowed_labels = get_allowed_labels()
+        return list(allowed_labels.get('language', set()))
