@@ -102,12 +102,17 @@ class LLMClient:
         retry_delay = api_config.get("retry_delay", 1)
         retry_backoff = api_config.get("retry_backoff", 2)
 
+        logger.debug(f"\n{'='*80}")
         logger.debug(f"=== 发送给 LLM 的请求 ===")
         logger.debug(f"歌曲信息: {artist} - {title} ({album})")
         if lyrics:
             logger.debug(f"歌词长度: {len(lyrics)} 字符")
         logger.debug(f"API URL: {get_base_url()}")
-        logger.debug(f"请求体: {json.dumps(payload, ensure_ascii=False, indent=2)}")
+        logger.debug(f"\n--- 完整的提示词(Prompt) ---")
+        logger.debug(prompt)
+        logger.debug(f"\n--- 请求体 ---")
+        logger.debug(f"{json.dumps(payload, ensure_ascii=False, indent=2)}")
+        logger.debug(f"{'='*80}\n")
 
         for attempt in range(max_retries):
             try:
@@ -115,12 +120,16 @@ class LLMClient:
                 r.raise_for_status()
                 content = r.json()['choices'][0]['message']['content']
 
+                logger.debug(f"\n{'='*80}")
                 logger.debug(f"=== LLM 的回复 ===")
                 logger.debug(f"状态码: {r.status_code}")
-                logger.debug(f"原始响应内容: {content}")
+                logger.debug(f"\n--- 原始响应内容 ---")
+                logger.debug(content)
 
                 parsed_json = self._safe_extract_json(content)
-                logger.debug(f"解析后的 JSON: {json.dumps(parsed_json, ensure_ascii=False, indent=2) if parsed_json else '解析失败'}")
+                logger.debug(f"\n--- 解析后的 JSON ---")
+                logger.debug(f"{json.dumps(parsed_json, ensure_ascii=False, indent=2) if parsed_json else 'JSON解析失败'}")
+                logger.debug(f"{'='*80}\n")
 
                 return parsed_json, content
             except requests.exceptions.RequestException as e:
