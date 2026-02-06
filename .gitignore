@@ -83,3 +83,10 @@ lerna-debug.log*
 coverage.json
 .coverage
 htmlcov/
+
+# Temporary test data files
+test_*.json
+test_*.md
+test_*.txt
+test_validation.py
+
