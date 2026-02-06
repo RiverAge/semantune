@@ -4,10 +4,11 @@
 
 import sqlite3
 import json
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Any, Optional, Union, Tuple
 
 from .semantic_query import SemanticQueryRepository
 from .semantic_stats import SemanticStatsRepository
+from config.constants import validate_tags_against_whitelist
 
 
 class SemanticRepository:
@@ -147,7 +148,7 @@ class SemanticRepository:
         model: str
     ) -> None:
         """
-        保存歌曲语义标签
+        保存歌曲语义标签（旧方法，保持兼容）
 
         Args:
             file_id: 歌曲ID
@@ -160,8 +161,8 @@ class SemanticRepository:
         """
         self.sem_conn.execute("""
             INSERT OR REPLACE INTO music_semantic
-            (file_id, title, artist, album, mood, energy, genre, style, scene, region, culture, language, confidence, model)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (file_id, title, artist, album, mood, energy, genre, style, scene, region, culture, language, confidence, model, validation_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             file_id, title, artist, album,
             self._normalize_tag_value(tags.get('mood')),
@@ -172,6 +173,80 @@ class SemanticRepository:
             self._normalize_tag_value(tags.get('region')),
             self._normalize_tag_value(tags.get('culture')),
             self._normalize_tag_value(tags.get('language')),
-            confidence, model
+            confidence, model, 'valid'
         ))
         self.sem_conn.commit()
+
+    def save_song_tags_with_validation(
+        self,
+        file_id: str,
+        title: str,
+        artist: str,
+        album: str,
+        tags: Dict[str, Any],
+        confidence: float,
+        model: str
+    ) -> Tuple[bool, Dict[str, Any]]:
+        """
+        保存歌曲语义标签（带白名单验证）
+
+        Args:
+            file_id: 歌曲ID
+            title: 歌曲标题
+            artist: 歌手名称
+            album: 专辑名称
+            tags: 标签字典
+            confidence: 置信度
+            model: 使用的模型名称
+
+        Returns:
+            (是否保存成功, 验证结果)
+            如果有违规标签：
+                - 返回 False，记录validation_status='invalid'和invalid_tags
+            如果全部合规：
+                - 返回 True，记录validation_status='valid'，invalid_tags=NULL
+        """
+        # 验证标签
+        validation_result = validate_tags_against_whitelist(tags)
+
+        if validation_result['is_valid']:
+            # 合规：正常保存
+            self.sem_conn.execute("""
+                INSERT OR REPLACE INTO music_semantic
+                (file_id, title, artist, album, mood, energy, genre, style, scene, region, culture, language, confidence, model, validation_status, invalid_tags)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                file_id, title, artist, album,
+                self._normalize_tag_value(tags.get('mood')),
+                self._normalize_tag_value(tags.get('energy')),
+                self._normalize_tag_value(tags.get('genre')),
+                self._normalize_tag_value(tags.get('style')),
+                self._normalize_tag_value(tags.get('scene')),
+                self._normalize_tag_value(tags.get('region')),
+                self._normalize_tag_value(tags.get('culture')),
+                self._normalize_tag_value(tags.get('language')),
+                confidence, model, 'valid', None
+            ))
+            self.sem_conn.commit()
+            return True, validation_result
+        else:
+            # 不合规：记录但标记为invalid
+            invalid_tags_json = json.dumps(validation_result['invalid_tags'], ensure_ascii=False)
+            self.sem_conn.execute("""
+                INSERT OR REPLACE INTO music_semantic
+                (file_id, title, artist, album, mood, energy, genre, style, scene, region, culture, language, confidence, model, validation_status, invalid_tags)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                file_id, title, artist, album,
+                self._normalize_tag_value(tags.get('mood')),
+                self._normalize_tag_value(tags.get('energy')),
+                self._normalize_tag_value(tags.get('genre')),
+                self._normalize_tag_value(tags.get('style')),
+                self._normalize_tag_value(tags.get('scene')),
+                self._normalize_tag_value(tags.get('region')),
+                self._normalize_tag_value(tags.get('culture')),
+                self._normalize_tag_value(tags.get('language')),
+                confidence, model, 'invalid', invalid_tags_json
+            ))
+            self.sem_conn.commit()
+            return False, validation_result

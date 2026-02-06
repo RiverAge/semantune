@@ -77,15 +77,77 @@ def _save_yaml_config(config_file: str, config: Dict[str, Any]) -> None:
 def get_allowed_labels() -> Dict[str, Set[str]]:
     """
     获取标签白名单
-    
+
     Returns:
         标签白名字典
     """
     config = _load_yaml_config("tagging_config.yaml")
     labels = config.get("allowed_labels", {})
-    
+
     # 转换为 set
     return {k: set(v) for k, v in labels.items()}
+
+
+def validate_tags_against_whitelist(tags: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    验证标签是否符合白名单
+
+    Args:
+        tags: 标签字典
+
+    Returns:
+        {
+            "is_valid": bool,  # 是否完全合规
+            "invalid_tags": Dict[str, List[str]],  # 违规标签 {维度: [标签列表]}
+            "all_valid": bool  # 所有字段是否都有效
+        }
+    """
+    allowed_labels = get_allowed_labels()
+
+    is_valid = True
+    invalid_tags = {}
+
+    # 定义所有维度字段
+    dimension_fields = {
+        'mood': True,  # list
+        'energy': False,  # single value
+        'genre': True,  # list
+        'style': True,  # list
+        'scene': True,  # list
+        'region': False,  # single value
+        'culture': False,  # single value
+        'language': False,  # single value
+    }
+
+    for field, is_array in dimension_fields.items():
+        if field not in tags:
+            continue
+
+        value = tags[field]
+        if value is None or (isinstance(value, str) and not value.strip()):
+            continue
+
+        # 获取标签列表
+        if is_array:
+            tag_list = value if isinstance(value, list) else [value]
+        else:
+            tag_list = [value]
+
+        # 检查每个标签是否在白名单中
+        if field in allowed_labels:
+            whitelist = allowed_labels[field]
+            for tag in tag_list:
+                if tag not in whitelist:
+                    is_valid = False
+                    if field not in invalid_tags:
+                        invalid_tags[field] = []
+                    invalid_tags[field].append(str(tag))
+
+    return {
+        "is_valid": is_valid,
+        "invalid_tags": invalid_tags,
+        "all_valid": is_valid and not invalid_tags
+    }
 
 
 def get_scene_presets() -> Dict[str, Dict[str, List[str]]]:

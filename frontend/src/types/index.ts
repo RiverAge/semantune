@@ -190,6 +190,45 @@ export interface AllConfig {
   api_config: TaggingApiConfig;
 }
 
+// 验证相关类型
+export interface ValidationStats {
+  total: number;
+  valid: number;
+  invalid: number;
+  valid_rate: number;
+  invalid_by_dimension: Record<string, number>;
+}
+
+export interface InvalidSong {
+  file_id: string;
+  title: string;
+  artist: string;
+  album: string;
+  tags: Record<string, string | string[]>;
+  confidence: number;
+  model: string;
+  updated_at: string;
+  invalid_tags: Record<string, string[]>;
+}
+
+export interface InvalidSongsResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  data: InvalidSong[];
+}
+
+export interface RevalidateResponse {
+  success: boolean;
+  is_valid: boolean;
+  validation_result: {
+    is_valid: boolean;
+    invalid_tags: Record<string, string[]>;
+    all_valid: boolean;
+  };
+  tags: Record<string, string | string[]>;
+}
+
 // 日志相关类型
 export interface LogFileInfo {
   name: string;

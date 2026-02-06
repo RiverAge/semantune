@@ -1,0 +1,119 @@
+当前LLM使用的Prompt (2026-02-06)
+================================================================================
+
+你是专业音乐标签系统。请根据歌曲信息输出严格符合规则的JSON标签。
+
+【强制规则】
+- 只能使用白名单中的标签,不得创造新标签。
+- 严格遵守每个字段的数量限制。
+- 如果不确定,请选择更少标签而不是猜测。
+- 只输出JSON,不要任何解释文字。
+
+【歌曲信息】
+标题: {title}
+艺术家: {artist}
+专辑: {album}
+歌词: {lyrics}
+
+【标签白名单】
+
+mood (选择 1–3 个,按重要性排序):
+Happy, Sad, Romantic, Peaceful, Dreamy, Dark
+Melancholic, Hopeful, Nostalgic, Mysterious, Playful, Warm
+
+energy (选择 1 个):
+Low, Medium, High
+
+genre (选择 1–2 个):
+Pop, Rock, Hip-Hop, R&B, Electronic, Folk
+Jazz, Classical, Metal, Indie, Soundtrack, Ambient, World, None
+
+style (选择 0–3 个):
+Ballad, Acoustic, Orchestral, Cinematic, Lo-fi
+Synthwave, Trap, House, Techno, EDM
+Alternative, Post-rock, Hard Rock, Soft Rock
+Dream Pop, Minimalist, Retro, Modern, Punk, City Pop
+
+scene (选择 0–2 个):
+Sleep, Study, Relax, Focus, Driving, Workout
+Running, Party, Background, Travel
+Morning, Night, Meditation, Gaming
+
+region (选择 1 个):
+Chinese, Taiwanese, Hong Kong, Japanese, Korean, Western, Other
+
+culture (选择 1 个):
+Anime, Game, Film, TV, Idol, Vocaloid, None
+
+language (选择 1 个):
+Chinese, Japanese, Korean, English, Instrumental, Other
+
+【输出格式】
+```json
+{
+  "mood": ["..."],
+  "energy": "...",
+  "genre": ["..."],
+  "style": ["..."],
+  "scene": ["..."],
+  "region": "...",
+  "culture": "...",
+  "language": "...",
+  "confidence": 0.00
+}
+```
+
+================================================================================
+测试结果总结 (40首歌曲)
+================================================================================
+
+【基本统计】
+- 总歌曲数: 40首
+- 总标签数: 493个 (平均每首12.3个标签维度)
+
+【白名单合规性】
+- 合规标签: 488个
+- 无效标签: 5个 (1.0%)
+- 白名单合规率: 98.4%
+
+【无效标签详情】
+MOOD维度:
+  - "Epic" (1首): Dragonborn
+  - "Dark Melancholic" (1首): Believer (合并标签)
+
+GENRE维度:
+  - "Post-rock" (1首): Svefn-g-englar (应在style,不在genre)
+  - "J-Pop" (1首): First Love (不在白名单)
+
+STYLE维度:
+  - "J-Pop" (1首): アイドル (不在白名单)
+
+【Confidence统计】
+- 平均confidence: 0.81
+- 范围: 0.80 - 0.95
+
+【Tag Distribution - Top Tags】
+MOOD: Nostalgic(21), Peaceful(19), Dreamy(13)
+ENERGY: Medium(18), High(12), Low(10)
+GENRE: Pop(21), Soundtrack(15), Rock(7)
+STYLE: Ballad(18), Orchestral(16), Cinematic(14)
+SCENE: Relax(28), Background(16), Gaming(6)
+REGION: Japanese(16), Western(14), Chinese(6)
+CULTURE: None(22), Anime(8), Film(4)
+LANGUAGE: Instrumental(15), Chinese(10), English(8)
+
+【问题分析】
+1. LLM还是输出了白名单外的标签，尽管Prompt中有"强制规则"
+2. 有合并标签问题 (Dark Melancholic)
+3. 有维度混淆 (Post-rock在style中，但LLM放到genre)
+4. J-Pop这种常见标签不在白名单中，但LLM习惯性输出
+
+【你朋友的观点验证】
+✅ 确实是"Prompt还没做到强约束schema compliance"
+✅ 98.4%的合规率说明Prompt有约束力，但还不够强
+
+【建议】
+需要在Prompt中增加更强硬的约束，例如:
+- 列出明确禁止的标签列表
+- 增加输出前验证步骤
+- 对常见违规标签进行警告

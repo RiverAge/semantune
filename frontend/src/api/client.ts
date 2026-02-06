@@ -20,6 +20,9 @@ import type {
   DuplicateAlbumsResponse,
   DuplicateSongsInAlbumResponse,
   HealthData,
+  ValidationStats,
+  InvalidSongsResponse,
+  RevalidateResponse,
 } from '../types';
 
 /**
@@ -353,6 +356,24 @@ export const duplicateApi = {
   // 检测专辑内重复
   getDuplicateSongsInAlbum: async (): Promise<ApiResponse<DuplicateSongsInAlbumResponse>> => {
     return await api.get('/duplicate/songs-in-album');
+  },
+};
+
+// 验证相关 API
+export const validationApi = {
+  // 获取验证统计信息
+  getStats: async (): Promise<ApiResponse<ValidationStats>> => {
+    return await api.get('/tagging/validation/stats');
+  },
+
+  // 获取无效标签的歌曲列表
+  getInvalidSongs: async (limit: number = 20, offset: number = 0): Promise<InvalidSongsResponse> => {
+    return await api.get('/tagging/validation/invalid', { params: { limit, offset } }) as any;
+  },
+
+  // 重新验证单首歌曲
+  revalidateSong: async (fileId: string): Promise<RevalidateResponse> => {
+    return await api.post(`/tagging/validation/revalidate/${fileId}`);
   },
 };
 

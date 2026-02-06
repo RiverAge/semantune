@@ -2,6 +2,7 @@ import { useTagging } from './tagging/useTagging';
 import TaggingConfig from './tagging/TaggingConfig';
 import BatchTagging from './tagging/BatchTagging';
 import TagTest from './tagging/TagTest';
+import ValidationPanel from './tagging/ValidationPanel';
 import TaggingTabs from './tagging/TaggingTabs';
 import TaggingHeader from './tagging/TaggingHeader';
 
@@ -78,6 +79,12 @@ export default function Tagging() {
       {activeTab === 'test' && (
         <TagTest onTestSuccess={() => {}} />
       )}
+
+      {/* 标签验证标签页 */}
+      {activeTab === 'validation' && (
+        <ValidationPanel />
+      )}
     </div>
   );
 }
+

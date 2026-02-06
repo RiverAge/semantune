@@ -15,7 +15,7 @@ const DEFAULT_CONFIG: ApiConfig = {
 };
 
 export function useTagging() {
-  const [activeTab, setActiveTab] = useState<'batch' | 'test'>('batch');
+  const [activeTab, setActiveTab] = useState<'batch' | 'test' | 'validation'>('batch');
 
   // 配置状态
   const [config, setConfig] = useState<ApiConfig>(DEFAULT_CONFIG);

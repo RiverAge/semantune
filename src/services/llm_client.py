@@ -81,11 +81,8 @@ class LLMClient:
         """
         prompt_template = self._get_custom_prompt_template()
 
-        if lyrics and lyrics.strip():
-            lyrics_section = f"歌词:\n{lyrics.strip()}\n\n"
-        else:
-            lyrics_section = ""
-        prompt = prompt_template.format(title=title, artist=artist, album=album, lyrics_section=lyrics_section)
+        lyrics_text = lyrics.strip() if lyrics and lyrics.strip() else "N/A"
+        prompt = prompt_template.format(title=title, artist=artist, album=album, lyrics=lyrics_text)
 
         api_config = get_tagging_api_config()
 

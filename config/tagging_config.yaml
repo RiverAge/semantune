@@ -4,178 +4,177 @@
 # 标签白名单
 allowed_labels:
   mood:
-    - Energetic
-    - Epic
-    - Emotional
-    - Sad
-    - Chill
-    - Dark
     - Happy
-    - Peaceful
+    - Sad
     - Romantic
+    - Peaceful
     - Dreamy
-    - Upbeat
-    - Groovy
-    - Nostalgic
-    - Warm
+    - Dark
     - Melancholic
     - Hopeful
+    - Nostalgic
     - Mysterious
     - Playful
-    - Angry
-    - Bitter
+    - Warm
   energy:
     - Low
     - Medium
     - High
   genre:
     - Pop
-    - Indie
     - Rock
-    - Electronic
     - Hip-Hop
-    - Classical
+    - R&B
+    - Electronic
     - Folk
-    - J-Rock
+    - Jazz
+    - Classical
     - Metal
+    - Indie
     - Soundtrack
     - Ambient
-    - Post-rock
-    - R&B
-    - Country
+    - World
+    - None
   style:
     - Ballad
     - Acoustic
-    - Soft Rock
-    - Minimalist
-    - Alternative
-    - Modern
-    - Hard Rock
     - Orchestral
     - Cinematic
-    - Synthwave
     - Lo-fi
-    - Piano
+    - Synthwave
     - Trap
-    - Disco
-    - Retro
-    - 90s
-    - City Pop
-    - Atmospheric
+    - House
+    - Techno
     - EDM
+    - Alternative
+    - Post-rock
+    - Hard Rock
+    - Soft Rock
+    - Dream Pop
+    - Minimalist
+    - Retro
+    - Modern
+    - Punk
+    - City Pop
   scene:
+    - Sleep
+    - Study
     - Relax
-    - Night
-    - Travel
+    - Focus
     - Driving
     - Workout
-    - Gaming
-    - Background
-    - Focus
-    - Study
-    - Morning
-    - Sleep
+    - Running
     - Party
+    - Background
+    - Travel
+    - Morning
+    - Night
     - Meditation
+    - Gaming
   region:
     - Chinese
     - Taiwanese
     - Hong Kong
     - Japanese
-    - Western
     - Korean
+    - Western
+    - Other
   culture:
-    - None
+    - Anime
+    - Game
     - Film
     - TV
-    - Game
-    - Anime
-    - Vocaloid
     - Idol
+    - Vocaloid
+    - None
   language:
     - Chinese
     - Japanese
+    - Korean
     - English
     - Instrumental
     - Other
-    - Korean
 
 # 自定义提示词模板（支持歌词）
 prompt_template: |
-  你是专业音乐标签专家。请根据歌曲信息分析并生成JSON格式的音乐标签。
+  你是专业音乐标签系统。请根据歌曲信息输出严格符合规则的JSON标签。
 
-  ## 歌曲信息
+  【强制执行规则】
+  1. 只能使用白名单中的标签，不得创造新标签。
+  2. 每个标签必须是白名单中的单个完整词条，不允许组合词或拼接词（例如禁止 "Dark Melancholic"）。
+  3. 严格遵守每个字段的数量限制。
+  4. 如果最合适的语义标签不在白名单中，必须用最接近的合法标签替换，而不是输出非法标签。
+  5. 如果不确定，请选择更少标签而不是猜测。
+  6. 如果歌曲有人声或歌词，不得将 language 标为 "Instrumental"。
+  7. genre 表示一级商业流派；style 表示子风格、质感或制作风格。若有冲突，请保持 genre 更宽泛。
+  8. 在输出前，请逐字段检查是否违反以上规则，并在发现问题时自动修正。
+  9. 只输出 JSON，不要任何解释文字。
+
+  【明确禁止标签（即使在训练数据中很常见，也绝对禁止输出）】
+
+  Mood 禁止：
+  - Epic, Energetic, Upbeat, Groovy, Chill, Emotional
+
+  Genre 禁止：
+  - J-Pop, K-Pop, C-Pop, J-Rock, K-Rock
+
+  如果原始语义属于上述标签，必须按以下方式表达：
+  - Epic → 使用 energy=High + style=Cinematic/Orchestral + mood=Hopeful/Dark/Mysterious
+  - J-Pop/K-Pop/C-Pop → 使用 region + genre=Pop + 可选 style=City Pop
+
+  【歌曲信息】
   标题: {title}
   艺术家: {artist}
   专辑: {album}
-  {lyrics_section}
+  歌词: {lyrics}
 
-  ## 标签规则
+  【标签白名单】
 
-  ### 标签维度说明
-  1. mood (情绪): 1-3个标签，描述歌曲的情感色彩
-  2. energy (能量): 1个标签 (Low/Medium/High)，描述歌曲的能量水平
-  3. genre (流派): 1-2个标签，描述音乐的主要流派
-  4. style (风格): 0-3个标签，描述具体的音乐风格特征
-  5. scene (场景): 0-2个标签，描述适合使用的场景
-  6. region (地区): 1个标签，描述音乐的文化地域来源
-  7. culture (文化): 1个标签，描述音乐的原生文化场景
-  8. language (语言): 1个标签，描述歌曲的主要语言（纯音乐选Instrumental）
+  mood (选择 1–3 个，按重要性排序):
+  Happy, Sad, Romantic, Peaceful, Dreamy, Dark,
+  Melancholic, Hopeful, Nostalgic, Mysterious, Playful, Warm
 
-  ### 标签白名单
-
-  **mood** (选择1-3个，按相关度排序):
-  Energetic, Epic, Emotional, Sad, Chill, Dark, Happy, Peaceful, Romantic, Dreamy, Upbeat, Groovy, Nostalgic, Warm, Melancholic, Hopeful, Mysterious, Playful, Angry, Bitter
-
-  **energy** (选择1个):
+  energy (选择 1 个):
   Low, Medium, High
 
-  **genre** (选择1-2个，按主次排序):
-  Pop, Indie, Rock, Electronic, Hip-Hop, Classical, Folk, J-Rock, Metal, Soundtrack, Ambient, Post-rock, R&B, Country
+  genre (选择 1–2 个):
+  Pop, Rock, Hip-Hop, R&B, Electronic, Folk,
+  Jazz, Classical, Metal, Indie, Soundtrack, Ambient, World, None
 
-  **style** (选择0-3个):
-  Ballad, Acoustic, Soft Rock, Minimalist, Alternative, Modern, Hard Rock, Orchestral, Cinematic, Synthwave, Lo-fi, Piano, Trap, Disco, Retro, 90s, City Pop, Atmospheric, EDM
+  style (选择 0–3 个):
+  Ballad, Acoustic, Orchestral, Cinematic, Lo-fi,
+  Synthwave, Trap, House, Techno, EDM,
+  Alternative, Post-rock, Hard Rock, Soft Rock,
+  Dream Pop, Minimalist, Retro, Modern, Punk, City Pop
 
-  **scene** (选择0-2个):
-  Relax, Night, Travel, Driving, Workout, Gaming, Background, Focus, Study, Morning, Sleep, Party, Meditation
+  scene (选择 0–2 个):
+  Sleep, Study, Relax, Focus, Driving, Workout,
+  Running, Party, Background, Travel,
+  Morning, Night, Meditation, Gaming
 
-  **region** (选择1个):
-  Chinese, Taiwanese, Hong Kong, Japanese, Western, Korean
+  region (选择 1 个):
+  Chinese, Taiwanese, Hong Kong, Japanese, Korean, Western, Other
 
-  **culture** (选择1个):
-  None, Film, TV, Game, Anime, Vocaloid, Idol
+  culture (选择 1 个):
+  Anime, Film, TV, Game, Idol, Vocaloid, None
 
-  **language** (选择1个):
-  Chinese, Japanese, English, Instrumental, Other, Korean
+  language (选择 1 个):
+  Chinese, Japanese, Korean, English, Instrumental, Other
 
-  ### 特殊规则
-  1. 优先使用列表中的标签，不要自创新标签
-  2. mood必须选1-3个，energy/genre/region/culture/language各选1个
-  3. style和scene可以选0-3个和0-2个，根据歌曲特征选择
-  4. 纯音乐/器乐作品language必须选"Instrumental"，不得有误
-  5. 如果没有合适的文化或场景，可以选择"None"（仅culture和scene支持）
-  6. 标签必须从白名单中选择，不可超出范围
-  7. 歌词是判断语言的关键依据，有歌词则根据歌词内容确定语言
-
-  ### 输出格式
-  请只输出JSON，不要包含任何其他文字或解释：
+  【输出格式】
   ```json
   {{
-    "mood": ["标签1","标签2"...],
-    "energy": "标签",
-    "genre": ["标签1","标签2"...],
-    "style": ["标签1","标签2"...],
-    "scene": ["标签1","标签2"...],
-    "region": "标签",
-    "culture": "标签",
-    "language": "标签",
-    "confidence": 0.95
+    "mood": ["..."],
+    "energy": "...",
+    "genre": ["..."],
+    "style": ["..."],
+    "scene": ["..."],
+    "region": "...",
+    "culture": "...",
+    "language": "...",
+    "confidence": 0.00
   }}
   ```
-
-  confidence值表示你对标签的信心程度（0.0-1.0）。
-
-  请严格按照以上规则和格式输出JSON。
 
 # API 调用配置
 api:

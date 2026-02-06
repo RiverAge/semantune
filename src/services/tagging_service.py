@@ -4,6 +4,7 @@
 
 from typing import Dict, Any, List, Optional
 import logging
+import json
 
 from config.settings import get_model
 from src.repositories.navidrome_repository import NavidromeRepository
@@ -112,6 +113,7 @@ class TaggingService:
 
         processed = 0
         failed = 0
+        validation_failed = 0
 
         for idx, song in enumerate(untagged_songs, 1):
             try:
@@ -123,7 +125,8 @@ class TaggingService:
                     lyrics=lyrics
                 )
 
-                self.sem_repo.save_song_tags(
+                # 使用带验证的保存方法
+                is_valid, validation_result = self.sem_repo.save_song_tags_with_validation(
                     file_id=song['id'],
                     title=song['title'],
                     artist=song['artist'],
@@ -132,20 +135,27 @@ class TaggingService:
                     confidence=result['tags'].get('confidence', 0.0),
                     model=get_model()
                 )
-                processed += 1
-                logger.info(f"处理进度 [{idx}/{len(untagged_songs)}]: {song['title']} - {song['artist']}")
+
+                if is_valid:
+                    processed += 1
+                    logger.info(f"处理进度 [{idx}/{len(untagged_songs)}]: {song['title']} - {song['artist']} - VALID")
+                else:
+                    validation_failed += 1
+                    invalid_tags_str = json.dumps(validation_result['invalid_tags'], ensure_ascii=False)
+                    logger.warning(f"处理进度 [{idx}/{len(untagged_songs)}]: {song['title']} - {song['artist']} - INVALID - 违规标签: {invalid_tags_str}")
             except Exception as e:
                 logger.error(f"处理歌曲失败 [{idx}/{len(untagged_songs)}]: {song['title']} - {song['artist']} - {str(e)}", exc_info=True)
                 failed += 1
 
-        logger.info(f"处理完成: 总数={total}, 已标记={len(tagged_ids)}, 本次处理={processed}, 失败={failed}, 剩余={len(untagged_songs) - processed - failed}")
+        logger.info(f"处理完成: 总数={total}, 已标记={len(tagged_ids)}, 本次处理={processed}, 验证失败={validation_failed}, 失败={failed}, 剩余={len(untagged_songs) - processed - validation_failed - failed}")
 
         return {
             "total": total,
             "tagged": len(tagged_ids),
             "processed": processed,
+            "validation_failed": validation_failed,
             "failed": failed,
-            "remaining": len(untagged_songs) - processed - failed
+            "remaining": len(untagged_songs) - processed - validation_failed - failed
         }
 
     def cleanup_orphans(self) -> int:
