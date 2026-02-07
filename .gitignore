@@ -19,6 +19,11 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+.pytest_cache/
+.cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
 
 # Virtual Environment
 venv/
