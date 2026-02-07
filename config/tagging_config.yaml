@@ -108,7 +108,7 @@ prompt_template: |
   6. language 判断原则：除非 100% 确定是纯音乐（仅乐器演奏、无人声、无唱词），否则不得标记为 "Instrumental"。
   7. genre 表示一级商业流派；style 表示子风格、质感或制作风格。若有冲突，请保持 genre 更宽泛。
   8. 在输出前，请逐字段检查是否违反以上规则，并在发现问题时自动修正。
-  9. 只输出 JSON，不要任何解释文字。
+  9. **只输出标准JSON格式，绝对不能包含任何注释、箭头符号("->")或解释文字。JSON中的每个值必须是直接的标签，不能是转换表达式。**
 
   【完全禁止的标签（绝对不得在任何字段输出）】
   Vocal  # 有人声概念由language维度表达，style中禁止使用
@@ -116,8 +116,8 @@ prompt_template: |
   【禁止标签及 fallback 映射（必须严格遵循）】
 
   Mood 禁止 → fallback（绝对禁止输出任何禁止标签，必须严格转换为以下合法标签）：
-  - Epic → 绝对禁止输出，改为 energy=High + style=Cinematic，从mood字段选择Hopeful/Dark/Mysterious之一
-  - Energetic → 绝对禁止（任何情况下都不能在mood字段输出），改为 energy=High，mood从[Happy, Hopeful, Playful, Warm]中选择1-2个
+  - Epic → **绝对禁止（任何情况下都不能在mood字段输出，即使是非常宏大的音乐也不行），改为 energy=High + style=Cinematic，从mood字段只选择Hopeful/Dark/Mysterious/Peaceful之一，绝对不能包含Epic
+  - Energetic → **绝对禁止（任何情况下都不能在mood字段输出），改为 energy=High，mood从[Happy, Hopeful, Playful, Warm]中选择1-2个
   - Upbeat → 改为 mood=Happy + energy=High
   - Groovy → 改为 mood=Playful，优先选择 style=House 或 style=Retro（二选一）
   - Chill → 改为 mood=Peaceful + energy=Low 或 mood=Dreamy + energy=Low（二选一）
@@ -218,17 +218,19 @@ prompt_template: |
   【输出格式】
   ```json
   {{
-    "mood": ["..."],
-    "energy": "...",
-    "genre": ["..."],
-    "style": ["..."],
-    "scene": ["..."],
-    "region": "...",
-    "culture": "...",
-    "language": "...",
-    "confidence": 0.00
+    "mood": ["Hopeful", "Dark"],
+    "energy": "High",
+    "genre": ["Soundtrack"],
+    "style": ["Cinematic", "Orchestral"],
+    "scene": ["Gaming"],
+    "region": "Western",
+    "culture": "Game",
+    "language": "Instrumental",
+    "confidence": 0.95
   }}
   ```
+  
+  **重要：上面的JSON只是示例格式。实际输出中每个字段只能是白名单中的合法标签，绝对不能输出禁止标签或显示转换过程。**
 
 # API 调用配置
 api:
