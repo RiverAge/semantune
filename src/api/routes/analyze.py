@@ -176,10 +176,11 @@ async def get_health():
     try:
         from src.core.database import nav_db_context
 
-        with sem_db_context() as sem_conn:
-            # 总歌曲数
-            total_songs = sem_conn.execute("SELECT COUNT(*) FROM music_semantic").fetchone()[0]
+        # 从Navidrome获取总歌曲数
+        with nav_db_context() as nav_conn:
+            total_songs = nav_conn.execute("SELECT COUNT(*) FROM media_file").fetchone()[0]
 
+        with sem_db_context() as sem_conn:
             # 已标签歌曲数
             tagged_songs = sem_conn.execute(
                 "SELECT COUNT(*) FROM music_semantic WHERE mood IS NOT NULL AND mood != 'None'"
@@ -251,16 +252,19 @@ async def get_overview():
     获取数据概览（前端专用）
     """
     try:
+        from src.core.database import nav_db_context
+
+        # 从Navidrome获取总歌曲数
+        with nav_db_context() as nav_conn:
+            total_songs = nav_conn.execute("SELECT COUNT(*) FROM media_file").fetchone()[0]
+
         with sem_db_context() as sem_conn:
-            # 总歌曲数
-            total_songs = sem_conn.execute("SELECT COUNT(*) FROM music_semantic").fetchone()[0]
-            
             # 已标签歌曲数
             tagged_songs = sem_conn.execute("SELECT COUNT(*) FROM music_semantic WHERE mood IS NOT NULL AND mood != 'None'").fetchone()[0]
-            
+
             # 未标签歌曲数
             untagged_songs = total_songs - tagged_songs
-            
+
             # 标签覆盖率
             tag_coverage = (tagged_songs / total_songs * 100) if total_songs > 0 else 0
             
