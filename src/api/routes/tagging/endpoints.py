@@ -520,7 +520,7 @@ def get_invalid_tags(
                     "invalid_tags": json.loads(row[15]) if row[15] else None
                 })
 
-        return ApiResponse.success(data={
+        return ApiResponse.success_response(data={
             "total": len(results),
             "limit": limit,
             "offset": offset,
@@ -573,7 +573,7 @@ def get_validation_stats():
                 except:
                     pass
 
-        return ApiResponse.success(data={
+        return ApiResponse.success_response(data={
             "total": total,
             "valid": valid,
             "invalid": invalid,
@@ -603,11 +603,9 @@ def revalidate_song(file_id: str):
             tagging_service = ServiceFactory.create_tagging_service(nav_conn, sem_conn)
 
             # 获取歌曲信息
-            songs = nav_repo.search_by_id(file_id)
-            if not songs:
+            song = nav_repo.get_song_by_id(file_id)
+            if not song:
                 raise HTTPException(status_code=404, detail="Song not found")
-
-            song = songs[0]
 
             # 重新生成标签
             lyrics = nav_repo.extract_lyrics_text(song.get('lyrics'))
@@ -629,12 +627,12 @@ def revalidate_song(file_id: str):
                 model=get_model()
             )
 
-            return ApiResponse.success(data={
-                "success": True,
-                "is_valid": is_valid,
-                "validation_result": validation_result,
-                "tags": result['tags']
-            })
+        return ApiResponse.success_response(data={
+            "success": is_valid,
+            "is_valid": is_valid,
+            "validation_result": validation_result,
+            "tags": result['tags']
+        })
 
     except HTTPException:
         raise
