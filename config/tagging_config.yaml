@@ -103,26 +103,49 @@ prompt_template: |
   1. 只能使用白名单中的标签，不得创造新标签。
   2. 每个标签必须是白名单中的单个完整词条，不允许组合词或拼接词（例如禁止 "Dark Melancholic"）。
   3. 严格遵守每个字段的数量限制。
-  4. 如果最合适的语义标签不在白名单中，必须用最接近的合法标签替换，而不是输出非法标签。
+  4. **如果最合适的语义标签不在白名单中，必须严格遵循【禁止标签及fallback映射】规则转换为合法标签，绝对不能输出禁止标签。**
   5. 如果不确定，请选择更少标签而不是猜测。
   6. language 判断原则：除非 100% 确定是纯音乐（仅乐器演奏、无人声、无唱词），否则不得标记为 "Instrumental"。
   7. genre 表示一级商业流派；style 表示子风格、质感或制作风格。若有冲突，请保持 genre 更宽泛。
   8. 在输出前，请逐字段检查是否违反以上规则，并在发现问题时自动修正。
   9. 只输出 JSON，不要任何解释文字。
 
-  【明确禁止标签（即使在训练数据中很常见，也绝对禁止输出）】
+  【完全禁止的标签（绝对不得在任何字段输出）】
+  Vocal  # 有人声概念由language维度表达，style中禁止使用
 
-  Mood 禁止：
-  - Epic, Energetic, Upbeat, Groovy, Chill, Emotional
+  【禁止标签及 fallback 映射（必须严格遵循）】
 
-  Genre 禁止：
-  - J-Pop, K-Pop, C-Pop, J-Rock, K-Rock
+  Mood 禁止 → fallback（绝对禁止输出任何禁止标签，必须严格转换为以下合法标签）：
+  - Epic → 绝对禁止输出，改为 energy=High + style=Cinematic，从mood字段选择Hopeful/Dark/Mysterious之一
+  - Energetic → 绝对禁止（任何情况下都不能在mood字段输出），改为 energy=High，mood从[Happy, Hopeful, Playful, Warm]中选择1-2个
+  - Upbeat → 改为 mood=Happy + energy=High
+  - Groovy → 改为 mood=Playful，优先选择 style=House 或 style=Retro（二选一）
+  - Chill → 改为 mood=Peaceful + energy=Low 或 mood=Dreamy + energy=Low（二选一）
+  - Emotional → 改为 mood=Melancholic 或 mood=Sad（二选一）
 
-  如果原始语义属于上述标签，必须按以下方式表达：
-  - Epic → 使用 energy=High + style=Cinematic/Orchestral + mood=Hopeful/Dark/Mysterious
-  - J-Pop/K-Pop/C-Pop → 使用 region + genre=Pop + 可选 style=City Pop
+  Genre 禁止 → fallback：
+  - J-Pop → genre=Pop + region=Japanese（同时输出）
+  - K-Pop → genre=Pop + region=Korean（同时输出）
+  - C-Pop → genre=Pop + region=Chinese（同时输出）
+  - J-Rock → genre=Rock + region=Japanese（同时输出）
+  - K-Rock → genre=Rock + region=Korean（同时输出）
+  - Indie Rock → genre=Rock + style=Alternative（同时输出）
+  - Synth Pop → genre=Pop + style=Synthwave（同时输出）
 
-  【高优先级纠错规则 - 必须优先执行】
+  Style 禁止 → fallback（按优先级选择）：
+  - Grunge → 首选 style=[Alternative, Hard Rock]（同时输出2个），备选 style=[Alternative]（输出1个）
+  - Piano → 首选 style=[Minimalist, Acoustic]（同时输出2个），备选 style=[Minimalist]（输出1个）
+  - Funk → 改为 style=Retro 或 style=City Pop（二选一），风格类似请使用白名单中已有的标签
+  - Guitar → 改为 style=Acoustic（输出1个）
+  - Violin → 改为 style=Orchestral（输出1个）
+  - Instrumental → **绝对禁止在style中使用**，只在language维度使用。如果音乐纯器乐，选择style=Minimalist、style=Ambient或style=Cinematic之一（输出1个）
+  - **任何其他不在白名单中的style标签 → 必须用白名单中最接近的合法标签替换，绝对不能输出**
+
+  Language 纠错规则：
+  - 如果误标为 Instrumental 但有人声 → 改为实际语言（Chinese/Japanese/Korean/English/Other）
+  - 如果语言无法判断 → language=Other
+
+  【高优先级纠错规则】
 
   1. 判断 language 是否为 Instrumental 时，严格遵循以下标准：
      - 仅有纯音乐（无任何人声、哼唱、Vocaloid）才能标记为 Instrumental
